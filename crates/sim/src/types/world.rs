@@ -1,7 +1,7 @@
 use crate::types::events::Event;
 use crate::types::fixture::ShipFixture;
 use crate::types::ids::{ModuleId, NetworkKind, PortName};
-use crate::types::meta::{ModuleKind, ModuleMeta};
+use crate::types::meta::ModuleMeta;
 use rand_chacha::ChaCha8Rng;
 use rand_chacha::rand_core::SeedableRng;
 use std::collections::BTreeMap;
@@ -104,5 +104,8 @@ fn testudo_comes_aboard() {
 	assert_eq!(w.as_built, w.connections); // true today. wait a decade.
 
 	let brk = w.modules.values().find(|m| m.label == "BRK-01").unwrap();
-	assert!(matches!(brk.kind, ModuleKind::Breaker { rating_a: 25 }));
+	assert!(matches!(
+		brk.kind,
+		crate::ModuleKind::Breaker { rating_a: 25 }
+	));
 }
