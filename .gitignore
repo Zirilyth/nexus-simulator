@@ -1,0 +1,16 @@
+# build artefacts — the only essential entry
+/target
+
+# local editor state (keep settings.json though — see below)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# perf/profiling droppings, for the benchmark era
+*.svg
+perf.data*
+flamegraph.svg
