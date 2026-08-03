@@ -1,0 +1,9 @@
+disallowed-types = [
+    { path = "std::collections::HashMap", reason = "iteration order is canon. BTreeMap. (derelict.html, purity card)" },
+    { path = "std::collections::HashSet", reason = "iteration order is canon. BTreeSet." },
+]
+disallowed-methods = [
+    { path = "std::time::SystemTime::now", reason = "the universe has one clock: world.tick" },
+    { path = "std::time::Instant::now", reason = "the universe has one clock: world.tick" },
+]
+allow-unwrap-in-tests = true

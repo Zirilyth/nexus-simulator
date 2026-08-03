@@ -1,3 +1,4 @@
+#![allow(clippy::print_stdout, clippy::print_stderr)]
 use sim::{ModuleKind, World};
 use std::io::{self, BufRead, Write};
 fn main() {
@@ -23,7 +24,7 @@ fn main() {
 
 	loop {
 		print!("deck> ");
-		io::stdout().flush().unwrap();
+		let _ = io::stdout().flush();
 
 		let Some(Ok(line)) = stdin.lock().lines().next() else {
 			break;
@@ -31,13 +32,13 @@ fn main() {
 		let mut words = line.split_whitespace();
 
 		match (words.next(), words.next()) {
-			(Some("quit"), _) | (Some("q"), _) => break,
+			(Some("quit" | "q" | "exit"), _) => break,
 
 			(Some("list"), _) => {
 				for (id, m) in &world.modules {
-					let cond = world.condition.get(id).copied().unwrap_or(0.0);
+					let cond = world.condition.get(id);
 					println!(
-						"  [{:>2}] {:<8} {:<12} cond {:.2}",
+						"  [{:>2}] {:<8} {:<12} cond {:.2?}",
 						id.0,
 						m.label,
 						kind_name(&m.kind),
@@ -49,11 +50,11 @@ fn main() {
 			(Some("inspect"), Some(label)) => {
 				match world.modules.iter().find(|(_, m)| m.label == label) {
 					Some((id, m)) => {
-						let cond = world.condition.get(id).copied().unwrap_or(0.0);
+						let cond = world.condition.get(id).copied();
 						println!("  {} — {}", m.label, kind_name(&m.kind));
 						println!("  maker  {:<10} part {}", m.maker, m.part);
 						println!("  serial {}", m.serial);
-						println!("  made   {:.2}    condition {:.2}", m.made, cond);
+						println!("  made   {:.2}    condition {:.2?}", m.made, cond);
 					}
 					None => println!("  no module '{label}' aboard."),
 				}

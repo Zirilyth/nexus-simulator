@@ -3,6 +3,19 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.dependencies]
-serde = { version = "1.0.229", features = ["derive"] }
-ron = "0.12"
-rand_chacha = "0.10"
+serde = { version = "1", features = ["derive"] }
+ron = "0.10"
+rand_chacha = "0.9"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+wildcard_enum_match_arm = "deny"
+
+dbg_macro = "warn"
+todo = "warn"

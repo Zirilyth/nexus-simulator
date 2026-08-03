@@ -1,5 +1,6 @@
+use crate::types::condition::Condition;
 use crate::types::events::Event;
-use crate::types::fixture::ShipFixture;
+use crate::types::fixture::{ResolvedShip, ShipFixture};
 use crate::types::ids::{ModuleId, NetworkKind, PortName};
 use crate::types::meta::ModuleMeta;
 use rand_chacha::ChaCha8Rng;
@@ -13,12 +14,12 @@ pub struct Connection {
 	pub to: (ModuleId, PortName),
 	pub run: String,
 }
-
+#[derive(Debug)]
 pub struct World {
 	pub tick: u64,
 	pub rng: ChaCha8Rng,
 	pub modules: BTreeMap<ModuleId, ModuleMeta>,
-	pub condition: BTreeMap<ModuleId, f32>,
+	pub condition: BTreeMap<ModuleId, Condition>,
 	pub connections: Vec<Connection>,
 	pub as_built: Vec<Connection>,
 	pub log: Vec<Event>,
@@ -32,52 +33,31 @@ pub enum LoadError {
 }
 
 impl World {
+	/// .
+	///
+	/// # Panics
+	///
+	/// Panics if .
+	/// more than 4 billion modules on one hull
+	/// # Errors
+	/// - [`OverflowError::Parse`]
 	pub fn from_fixture_str(text: &str) -> Result<Self, LoadError> {
 		let fx: ShipFixture = ron::from_str(text).map_err(LoadError::Parse)?;
-		let mut world = World::new(fx.seed);
-
-		let mut ids: BTreeMap<String, ModuleId> = BTreeMap::new();
-
-		for (i, m) in fx.modules.iter().enumerate() {
-			let id = ModuleId(i as u32);
-			ids.insert(m.label.clone(), id);
-			world.modules.insert(
-				id,
-				ModuleMeta {
-					kind: m.kind.clone(),
-					label: m.label.clone(),
-					maker: m.maker.clone(),
-					part: m.part.clone(),
-					serial: m.serial.clone(),
-					made: m.made,
-				},
-			);
-			world.condition.insert(id, m.condition);
-		} // ← modules loop CLOSES here. all labels now known.
-
-		for c in &fx.connections {
-			let resolve = |label: &str| {
-				ids.get(label)
-					.copied()
-					.ok_or_else(|| LoadError::UnknownLabel(label.into()))
-			};
-			world.connections.push(Connection {
-				net: c.net,
-				from: (resolve(&c.from.0)?, PortName(c.from.1.clone())),
-				to: (resolve(&c.to.0)?, PortName(c.to.1.clone())),
-				run: c.run.clone(),
-			});
-		}
-
-		world.as_built = world.connections.clone();
-		Ok(world)
+		let resolved = ResolvedShip::try_from(fx)?;
+		Ok(World::from(resolved))
 	}
 
+	/// Load a ship from RON fixture text.
+	///
+	/// # Errors
+	/// - [`LoadError::Parse`] — malformed RON (span included)
+	/// - [`LoadError::UnknownLabel`] — a connection references a module not aboard
 	pub fn from_fixture_file(path: &str) -> Result<Self, LoadError> {
 		let text = std::fs::read_to_string(path).map_err(LoadError::Io)?;
 		Self::from_fixture_str(&text)
 	}
 
+	#[must_use]
 	pub fn new(seed: u64) -> Self {
 		World {
 			tick: 0,
