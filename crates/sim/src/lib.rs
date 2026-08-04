@@ -1,6 +1,6 @@
 pub mod types;
 pub use types::events::{Command, Event, EventId, EventKind};
-pub use types::modules::{ModuleKind, ModuleMeta};
+pub use types::modules::{ModuleId, ModuleKind, ModuleMeta};
 pub use types::world::{Connection, World};
 
 use crate::systems::commands::apply_commands;
@@ -18,8 +18,10 @@ pub fn hello() -> &'static str {
 pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
 	let first_new = world.log.len();
 
-	apply_commands(world, commands);
+	// trips scheduled last tick open first: a thermal breaker acts late, and
+	// the delay is what keeps a trip from feeding back into its own cause.
 	crate::systems::power::tick_power(world);
+	apply_commands(world, commands);
 
 	world.tick += 1;
 	world.log[first_new..].to_vec()

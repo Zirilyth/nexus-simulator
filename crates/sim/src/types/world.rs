@@ -80,6 +80,24 @@ impl World {
 			.map(|(id, _)| *id)
 	}
 
+	/// `None` = this module has no opinion about electricity (a valve, so far).
+	#[must_use]
+	pub fn is_energised(&self, id: ModuleId) -> Option<bool> {
+		self.power.states.get(&id).map(|s| s.energised)
+	}
+
+	/// `None` = not a breaker.
+	#[must_use]
+	pub fn breaker_closed(&self, id: ModuleId) -> Option<bool> {
+		self.power.breakers.get(&id).map(|b| b.closed)
+	}
+
+	/// `None` = not a source.
+	#[must_use]
+	pub fn source_online(&self, id: ModuleId) -> Option<bool> {
+		self.power.sources.get(&id).map(|s| s.online)
+	}
+
 	pub(crate) fn emit(&mut self, kind: EventKind, cause: Option<EventId>) -> EventId {
 		let id = EventId(self.next_event);
 		self.next_event += 1;

@@ -78,6 +78,8 @@ pub(crate) fn settle_power(world: &mut World, cause: Option<EventId>) {
 		.collect();
 
 	// ---- apply phase: no outstanding borrows, mutate freely ----
+	// keep what we emitted: a trip's cause is the PowerChanged that overloaded it
+	let mut announced: Vec<(ModuleId, EventId)> = Vec::new();
 	for (id, energised) in changes {
 		world
 			.power
@@ -85,7 +87,8 @@ pub(crate) fn settle_power(world: &mut World, cause: Option<EventId>) {
 			.get_mut(&id)
 			.expect("diffed from this table")
 			.energised = energised;
-		world.emit(EventKind::PowerChanged { id, energised }, cause);
+		let ev = world.emit(EventKind::PowerChanged { id, energised }, cause);
+		announced.push((id, ev));
 	}
 
 	// ---- overload check: schedule trips for next tick ----
@@ -98,27 +101,36 @@ pub(crate) fn settle_power(world: &mut World, cause: Option<EventId>) {
 		.collect();
 
 	for id in breaker_ids {
-		let load_a = downstream_draw(world, &adjacency, id);
+		let (load_a, downstream) = downstream_load(world, &adjacency, id);
 		let ModuleKind::Breaker { rating_a } = world.modules[&id].kind else {
 			continue;
 		};
 		let already = world.power.pending_trips.iter().any(|(p, _)| *p == id);
 		if load_a > rating_a && !already {
+			// the last load to come alive under this breaker is what broke it.
+			// nothing changed downstream this settle → fall back to the actuator.
+			let blame = announced
+				.iter()
+				.rev()
+				.find(|(m, _)| downstream.contains(m))
+				.map_or(cause, |(_, ev)| Some(*ev));
 			let ev = world.emit(
 				EventKind::BreakerTripped {
 					id,
 					load_a,
 					rating_a,
 				},
-				cause,
+				blame,
 			);
 			world.power.pending_trips.push((id, ev));
 		}
 	}
 }
 
-/// Undirected adjacency over Power connections. Rebuilt per settle — 14 modules;
-/// cache when the profiler complains, not before.
+/// Directed adjacency over Power connections: the fixture wires supply→load, so
+/// `from` is always the feeding side. One convention, and propagation and the
+/// overload sum become the same walk. Rebuilt per settle — 14 modules; cache
+/// when the profiler complains, not before.
 fn power_adjacency(world: &World) -> BTreeMap<ModuleId, Vec<ModuleId>> {
 	let mut adj: BTreeMap<ModuleId, Vec<ModuleId>> = BTreeMap::new();
 	for c in world
@@ -127,40 +139,35 @@ fn power_adjacency(world: &World) -> BTreeMap<ModuleId, Vec<ModuleId>> {
 		.filter(|c| c.net == NetworkKind::Power)
 	{
 		adj.entry(c.from.0).or_default().push(c.to.0);
-		adj.entry(c.to.0).or_default().push(c.from.0);
 	}
 	adj
 }
 
-/// Sum of energised load draw downstream of a breaker: its component after
-/// refusing to walk back into buses, sources, or other breakers.
-/// Honest for radial wiring; mesh wiring is a later.md problem.
-fn downstream_draw(
+/// Everything fed by a breaker, and what the energised part of it draws.
+/// Follows the arrows, so it cannot walk back up into the bus — no kind
+/// heuristics, and a breaker downstream of a breaker sums correctly.
+/// Modules past an open breaker are dark, so the energised test excludes them.
+fn downstream_load(
 	world: &World,
 	adj: &BTreeMap<ModuleId, Vec<ModuleId>>,
 	breaker: ModuleId,
-) -> u32 {
-	let mut seen = BTreeSet::from([breaker]);
+) -> (u32, BTreeSet<ModuleId>) {
+	let mut seen: BTreeSet<ModuleId> = BTreeSet::new();
 	let mut queue = VecDeque::from([breaker]);
 	let mut total = 0;
 
 	while let Some(at) = queue.pop_front() {
 		for &next in adj.get(&at).into_iter().flatten() {
-			let kind = &world.modules[&next].kind;
-			let upstream = matches!(
-				kind,
-				ModuleKind::Bus | ModuleKind::BatteryBank | ModuleKind::Breaker { .. }
-			);
-			if upstream || !seen.insert(next) {
+			if !seen.insert(next) {
 				continue;
 			}
-			if world.power.states[&next].energised {
-				total += world.modules[&next].power_draw;
+			if world.power.states.get(&next).is_some_and(|s| s.energised) {
+				total += world.modules[&next].draw_a;
 			}
 			queue.push_back(next);
 		}
 	}
-	total
+	(total, seen)
 }
 
 impl PowerNet {

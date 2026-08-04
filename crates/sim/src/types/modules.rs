@@ -11,7 +11,7 @@ pub struct ModuleDef {
 	pub part: String,
 	pub serial: String,
 	pub made: f64,
-	pub power_draw: u32,
+	pub draw_a: u32,
 	pub condition: Condition,
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -22,7 +22,7 @@ pub struct ModuleMeta {
 	pub part: String,
 	pub serial: String,
 	pub made: f64,
-	pub power_draw: u32,
+	pub draw_a: u32,
 }
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PortName(pub String);

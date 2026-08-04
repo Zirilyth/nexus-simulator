@@ -5,7 +5,7 @@ use crate::types::condition::Condition;
 use crate::types::ids::NetworkKind;
 use crate::types::modules::{ModuleDef, ModuleId, ModuleMeta, PortName};
 use crate::types::world::LoadError;
-use crate::{Connection, World};
+use crate::{Connection, EventKind, World};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,7 +43,7 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 					part: m.part.clone(),
 					serial: m.serial.clone(),
 					made: m.made,
-					power_draw: m.power_draw,
+					draw_a: m.draw_a,
 				},
 				m.condition,
 			));
@@ -84,14 +84,17 @@ impl From<ResolvedShip> for World {
 		}
 		let power = PowerNet::from_modules(&modules);
 
-		World {
+		let mut world = World {
 			modules,
 			condition,
 			power,
 			as_built: ship.connections.clone(), // evaluated first (source order)…
 			connections: ship.connections,      // …then the original moves. no waste, no assignment
 			..World::new(ship.seed)             // tick, rng, log from the one blessed constructor
-		}
+		};
+		// event #0, always. paracausal: the ship exists because I said so.
+		world.emit(EventKind::WorldLoaded, None);
+		world
 	}
 }
 

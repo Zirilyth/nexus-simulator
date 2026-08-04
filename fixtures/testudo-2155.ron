@@ -1,3 +1,13 @@
+// TM-1187 as she stands in 2155: same hull, one cheap decision.
+//
+// The original VK-H90 (12A) died and was replaced with a secondhand Kirin
+// KH-77 — a 16A unit, aftermarket, six years younger than the hull and
+// already worn when it arrived. Whoever fitted it did not want to pull the
+// engineering trunk, so the heater feed was rerouted through the galley:
+// the short ugly way. GALLEY is a 3-way run and now carries four.
+//
+// BRK-01: 16 + 6 + 0 + 2 + 2 + 1 = 27 on a 25A breaker. It works until the
+// heater and the lights are asked for at the same time. Then it doesn't.
 ShipFixture(
 class: "testudo",
 hull_no: "TM-1187",
@@ -11,7 +21,7 @@ modules: [
 (label: "BRK-01", kind: Breaker(rating_a: 25), room: "R2", maker: "Vostok", part: "VK-F25", serial: "VK-2149-2517", made: 2149.05, condition: 1.0, draw_a: 0),
 (label: "BRK-02", kind: Breaker(rating_a: 25), room: "R2", maker: "Vostok", part: "VK-F25", serial: "VK-2149-2518", made: 2149.05, condition: 1.0, draw_a: 0),
 (label: "LSS-01", kind: Scrubber, room: "R1", maker: "Vostok", part: "VK-S200", serial: "VK-2149-0071", made: 2149.05, condition: 1.0, draw_a: 6),
-(label: "HTR-01", kind: Heater, room: "R1", maker: "Vostok", part: "VK-H90", serial: "VK-2149-0904", made: 2149.05, condition: 1.0, draw_a: 12),
+(label: "HTR-01", kind: Heater, room: "R1", maker: "Kirin", part: "KH-77", serial: "KR-2151-0817", made: 2151.40, condition: 0.71, draw_a: 16),
 (label: "PMP-01", kind: Pump, room: "R2", maker: "Vostok", part: "VK-P60", serial: "VK-2149-6612", made: 2149.05, condition: 1.0, draw_a: 4),
 (label: "SNS-01", kind: Sensor, room: "R1", maker: "Vostok", part: "VK-X4", serial: "VK-2149-8830", made: 2149.05, condition: 1.0, draw_a: 0),
 (label: "LT-01", kind: Lights, room: "R1", maker: "Vostok", part: "VK-L8", serial: "VK-2149-3341", made: 2149.05, condition: 1.0, draw_a: 2),
@@ -25,7 +35,7 @@ connections: [
 (net: Power, from: ("PWR-01", "out"), to: ("PWR-02", "in"), run: "LOCAL"),
 (net: Power, from: ("PWR-02", "out1"), to: ("BRK-01", "in"), run: "LOCAL"),
 (net: Power, from: ("PWR-02", "out2"), to: ("BRK-02", "in"), run: "LOCAL"),
-(net: Power, from: ("BRK-01", "out"), to: ("HTR-01", "pwr"), run: "ENG_TRUNK"),
+(net: Power, from: ("BRK-01", "out"), to: ("HTR-01", "pwr"), run: "GALLEY"),
 (net: Power, from: ("BRK-01", "out"), to: ("LSS-01", "pwr"), run: "ENG_TRUNK"),
 (net: Power, from: ("BRK-01", "out"), to: ("SNS-01", "pwr"), run: "ENG_TRUNK"),
 (net: Power, from: ("BRK-01", "out"), to: ("NAV-01", "pwr"), run: "ENG_TRUNK"),

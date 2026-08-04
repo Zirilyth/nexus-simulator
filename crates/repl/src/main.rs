@@ -16,9 +16,10 @@ fn main() {
 
 	println!("> deck.link ............ CONNECTED");
 	println!(
-		"> {} modules aboard. 'list', 'inspect <LABEL>', 'quit'",
+		"> {} modules aboard. 'help' for verbs.",
 		world.modules.len()
 	);
+	print_usage();
 
 	let stdin = io::stdin();
 	let mut world = world; // she mutates now
@@ -61,6 +62,8 @@ fn main() {
 					None => println!("  no module '{label}' aboard."),
 				}
 			}
+			(Some("status"), Some(label)) => print_status(&world, label),
+
 			(Some("source"), Some(onoff)) => match (words.next(), onoff) {
 				(Some(label), "on" | "off") => {
 					queue_source(&world, &mut queued, label, onoff == "on");
@@ -93,7 +96,12 @@ fn main() {
 				}
 			}
 
-			(Some(cmd), _) => println!("  unknown verb '{cmd}'."),
+			(Some("help" | "?"), _) => print_usage(),
+
+			(Some(cmd), _) => {
+				println!("  unknown verb '{cmd}'.");
+				print_usage();
+			}
 			(None, _) => {}
 		}
 	}
@@ -113,6 +121,50 @@ fn kind_name(k: &ModuleKind) -> &'static str {
 		ModuleKind::Valve { .. } => "valve",
 	}
 }
+/// The deck's grammar. Grows a line per phase; keep it the only place the
+/// verbs are spelled out, so it cannot drift from what the parser accepts.
+fn print_usage() {
+	for (verb, what) in [
+		("list", "every module aboard"),
+		("inspect <LABEL>", "meta: maker, part, serial, made"),
+		("status <LABEL>", "power state, draw, actuator position"),
+		("source on|off <LABEL>", "queue a source command"),
+		("breaker open|close <LABEL>", "queue a breaker command"),
+		("tick [n]", "submit the queue, run n ticks (default 1)"),
+		("log [n]", "last n events, causes as ← #id (default 10)"),
+		("help", "this"),
+		("quit", "deck.halt"),
+	] {
+		println!("  {verb:<28}{what}");
+	}
+}
+
+/// Per-network state for one module. Power only, until phase 3 gives the
+/// valves something to say.
+fn print_status(world: &World, label: &str) {
+	let Some(id) = world.find_label(label) else {
+		println!("  no module '{label}' aboard.");
+		return;
+	};
+	let m = &world.modules[&id];
+	println!("  {} — {}", m.label, kind_name(&m.kind));
+	println!(
+		"  power   {:<10} draw {}A",
+		match world.is_energised(id) {
+			Some(true) => "ENERGISED",
+			Some(false) => "dark",
+			None => "n/a",
+		},
+		m.draw_a
+	);
+	if let Some(closed) = world.breaker_closed(id) {
+		println!("  breaker {}", if closed { "closed" } else { "OPEN" });
+	}
+	if let Some(online) = world.source_online(id) {
+		println!("  source  {}", if online { "ONLINE" } else { "offline" });
+	}
+}
+
 fn queue_source(world: &World, queued: &mut Vec<Command>, label: &str, online: bool) {
 	match world.find_label(label) {
 		Some(id) => {
