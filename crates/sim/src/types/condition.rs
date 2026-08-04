@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 pub struct Condition(f32);
 
 impl Condition {
+	/// The airlock for condition values: 0.0–1.0, finite.
+	///
+	/// # Errors
+	/// [`InvalidCondition`] — outside `0.0..=1.0`, or not finite.
 	pub fn new(v: f32) -> Result<Self, InvalidCondition> {
 		if (0.0..=1.0).contains(&v) && v.is_finite() {
 			Ok(Condition(v))
@@ -12,6 +16,7 @@ impl Condition {
 			Err(InvalidCondition(v))
 		}
 	}
+	#[must_use]
 	pub fn get(self) -> f32 {
 		self.0
 	}

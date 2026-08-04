@@ -4,38 +4,21 @@
 //! events out. If one of these ever needs to reach into `World` and change
 //! something, the boundary has been broken and the test is the evidence.
 
-use sim::{Command, Event, EventKind, ModuleId, World, tick};
+use sim::{Command, Event, EventId, EventKind, ModuleId, World, tick};
+mod common;
+use common::{id, load, power_up};
 
-const TESTUDO: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/testudo.ron");
-const TESTUDO_2155: &str = concat!(
-	env!("CARGO_MANIFEST_DIR"),
-	"/../../fixtures/testudo-2155.ron"
-);
+use crate::common::{TESTUDO, TESTUDO_2155};
+#[test]
+fn the_ship_exists_because_i_said_so() {
+	let w = load(TESTUDO);
+	let first = w.log().first().expect("loading is an event");
 
-fn load(path: &str) -> World {
-	World::from_fixture_file(path).expect("fixture should load")
-}
-
-fn id(world: &World, label: &str) -> ModuleId {
-	world.find_label(label).expect("label should be aboard")
-}
-
-/// The script that brings a testudo up: battery online, both breakers shut.
-fn power_up(world: &World) -> Vec<Command> {
-	vec![
-		Command::SetSource {
-			id: id(world, "PWR-01"),
-			online: true,
-		},
-		Command::SetBreaker {
-			id: id(world, "BRK-01"),
-			closed: true,
-		},
-		Command::SetBreaker {
-			id: id(world, "BRK-02"),
-			closed: true,
-		},
-	]
+	assert_eq!(first.kind, EventKind::WorldLoaded);
+	assert_eq!(first.id, EventId(0));
+	assert_eq!(first.cause, None, "paracausal: nothing caused the ship");
+	assert_eq!(first.at_tick, 0);
+	assert_eq!(w.log().len(), 1, "a dead ship has one line of history");
 }
 
 fn energised_in(events: &[Event], who: ModuleId) -> bool {
@@ -144,7 +127,7 @@ fn trips_have_causes() {
 	let _ = tick(&mut w, &[]);
 
 	let trip = w
-		.log
+		.log()
 		.iter()
 		.find(|e| matches!(e.kind, EventKind::BreakerTripped { .. }))
 		.expect("the galley trap trips");
@@ -155,12 +138,12 @@ fn trips_have_causes() {
 	let mut hops = 0;
 	while let Some(cause) = at.cause {
 		at = w
-			.log
+			.log()
 			.iter()
 			.find(|e| e.id == cause)
 			.expect("a cause must name an event that exists");
 		hops += 1;
-		assert!(hops < w.log.len(), "cause chain must not cycle");
+		assert!(hops < w.log().len(), "cause chain must not cycle");
 	}
 
 	assert!(hops > 0, "a trip is nobody's spontaneous idea");
@@ -172,6 +155,33 @@ fn trips_have_causes() {
 		"chain must bottom out at the paracausal, got {:?}",
 		at.kind
 	);
+}
+
+#[test]
+fn bad_commands_become_history() {
+	let mut w = load(TESTUDO);
+	let lights = id(&w, "LT-01");
+	let brk = id(&w, "BRK-01");
+	let events = tick(
+		&mut w,
+		&[
+			Command::SetBreaker {
+				id: lights,
+				closed: true,
+			},
+			Command::SetSource {
+				id: brk,
+				online: true,
+			},
+			Command::SetBreaker {
+				id: ModuleId(999),
+				closed: true,
+			},
+		],
+	);
+	assert_eq!(events.len(), 3, "three rejections, no state change");
+	// and nothing settled: a rejected command changes nothing
+	assert_eq!(w.is_energised(lights), Some(false));
 }
 
 #[test]
@@ -199,10 +209,10 @@ fn canary_v2() {
 		let _ = tick(&mut b, &batch);
 	}
 
-	assert_eq!(a.log, b.log, "same seed, same script, same history");
-	assert_eq!(a.tick, b.tick);
+	assert_eq!(a.log(), b.log(), "same seed, same script, same history");
+	assert_eq!(a.tick(), b.tick());
 	assert!(
-		a.log
+		a.log()
 			.iter()
 			.any(|e| matches!(e.kind, EventKind::BreakerTripped { .. })),
 		"the canary must actually sing — script should include a trip"

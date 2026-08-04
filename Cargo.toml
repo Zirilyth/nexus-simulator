@@ -11,11 +11,14 @@ rand_chacha = "0.9"
 unsafe_code = "forbid"
 missing_debug_implementations = "warn"
 
+
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 unwrap_used = "warn"
 wildcard_enum_match_arm = "deny"
+print_stdout = "warn"
+print_stderr = "warn"
 
 dbg_macro = "warn"
 todo = "warn"

@@ -1,5 +1,5 @@
 #![allow(clippy::print_stdout, clippy::print_stderr)]
-use sim::{Command, Event, EventKind, ModuleKind, World, tick};
+use sim::{Command, Event, EventKind, ModuleId, ModuleKind, World, tick};
 use std::io::{self, BufRead, Write};
 fn main() {
 	let path = std::env::args()
@@ -17,7 +17,7 @@ fn main() {
 	println!("> deck.link ............ CONNECTED");
 	println!(
 		"> {} modules aboard. 'help' for verbs.",
-		world.modules.len()
+		world.modules().len()
 	);
 	print_usage();
 
@@ -40,8 +40,8 @@ fn main() {
 			(Some("quit" | "q" | "exit"), _) => break,
 
 			(Some("list"), _) => {
-				for (id, m) in &world.modules {
-					let cond = world.condition.get(id);
+				for (id, m) in world.modules() {
+					let cond = world.condition_of(*id);
 					println!(
 						"  [{:>2}] {:<8} {:<12} cond {:.2?}",
 						id.0,
@@ -53,9 +53,9 @@ fn main() {
 			}
 
 			(Some("inspect"), Some(label)) => {
-				match world.modules.iter().find(|(_, m)| m.label == label) {
+				match world.modules().iter().find(|(_, m)| m.label == label) {
 					Some((id, m)) => {
-						let cond = world.condition.get(id).copied();
+						let cond = world.condition_of(*id);
 						println!("  {} — {}", m.label, kind_name(&m.kind));
 						println!("  maker  {:<10} part {}", m.maker, m.part);
 						println!("  serial {}", m.serial);
@@ -96,7 +96,7 @@ fn main() {
 
 			(Some("log"), n) => {
 				let n: usize = n.and_then(|s| s.parse().ok()).unwrap_or(10);
-				for ev in world.log.iter().rev().take(n).rev() {
+				for ev in world.log().iter().rev().take(n).rev() {
 					print_event(&world, ev);
 				}
 			}
@@ -151,7 +151,7 @@ fn print_status(world: &World, label: &str) {
 		println!("  no module '{label}' aboard.");
 		return;
 	};
-	let m = &world.modules[&id];
+	let m = &world.modules()[&id];
 	println!("  {} — {}", m.label, kind_name(&m.kind));
 	println!(
 		"  power   {:<10} draw {}A",
@@ -194,9 +194,9 @@ fn queue_breaker(world: &World, queued: &mut Vec<Command>, label: &str, closed: 
 }
 
 fn print_event(world: &World, ev: &Event) {
-	let name = |id: &sim::types::modules::ModuleId| {
+	let name = |id: &ModuleId| {
 		world
-			.modules
+			.modules()
 			.get(id)
 			.map_or("???".to_string(), |m| m.label.clone())
 	};
@@ -261,8 +261,8 @@ fn replay_history(fixture: &str, file: &str) {
 		Ok(w) => println!(
 			"  refolded {} batches → tick {}, {} events",
 			script.len(),
-			w.tick,
-			w.log.len()
+			w.tick(),
+			w.log().len()
 		),
 		Err(e) => println!("  replay failed: {e:?}"),
 	}

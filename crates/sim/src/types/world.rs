@@ -18,15 +18,15 @@ pub struct Connection {
 }
 #[derive(Debug, PartialEq)]
 pub struct World {
-	pub tick: u64,
-	pub next_event: u64,
-	pub rng: ChaCha8Rng,
-	pub modules: BTreeMap<ModuleId, ModuleMeta>,
-	pub condition: BTreeMap<ModuleId, Condition>,
-	pub connections: Vec<Connection>,
-	pub as_built: Vec<Connection>,
-	pub power: PowerNet,
-	pub log: Vec<Event>,
+	pub(crate) tick: u64,
+	pub(crate) next_event: u64,
+	pub(crate) rng: ChaCha8Rng,
+	pub(crate) modules: BTreeMap<ModuleId, ModuleMeta>,
+	pub(crate) condition: BTreeMap<ModuleId, Condition>,
+	pub(crate) connections: Vec<Connection>,
+	pub(crate) as_built: Vec<Connection>,
+	pub(crate) power: PowerNet,
+	pub(crate) log: Vec<Event>,
 }
 
 #[derive(Debug)]
@@ -37,6 +37,26 @@ pub enum LoadError {
 }
 
 impl World {
+	#[must_use]
+	pub fn log(&self) -> &[Event] {
+		&self.log
+	}
+
+	#[must_use]
+	pub fn tick(&self) -> u64 {
+		self.tick
+	}
+
+	#[must_use]
+	pub fn modules(&self) -> &BTreeMap<ModuleId, ModuleMeta> {
+		&self.modules
+	}
+
+	#[must_use]
+	pub fn condition_of(&self, id: ModuleId) -> Option<Condition> {
+		self.condition.get(&id).copied()
+	}
+
 	/// Load a ship from RON fixture text.
 	///
 	/// # Errors
@@ -59,7 +79,7 @@ impl World {
 	}
 
 	#[must_use]
-	pub fn new(seed: u64) -> Self {
+	pub(crate) fn new(seed: u64) -> Self {
 		World {
 			tick: 0,
 			next_event: 0,

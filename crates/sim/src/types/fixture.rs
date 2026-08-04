@@ -4,8 +4,8 @@ use crate::systems::power::PowerNet;
 use crate::types::condition::Condition;
 use crate::types::ids::NetworkKind;
 use crate::types::modules::{ModuleDef, ModuleId, ModuleMeta, PortName};
-use crate::types::world::LoadError;
-use crate::{Connection, EventKind, World};
+use crate::types::world::{Connection, LoadError};
+use crate::{EventKind, World};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,18 +1,12 @@
-pub mod types;
+pub(crate) mod systems;
+pub(crate) mod types;
 use crate::systems::commands::apply_commands;
-pub use types::events::{Command, Event, EventId, EventKind};
-pub use types::modules::{ModuleId, ModuleKind, ModuleMeta};
-pub use types::world::{Connection, LoadError, World};
-pub mod systems;
+pub use crate::types::world::{Connection, LoadError, World};
+pub use types::condition::Condition;
+pub use types::events::{Command, Event, EventId, EventKind, RejectReason};
+pub use types::ids::NetworkKind;
+pub use types::modules::{ModuleId, ModuleKind, ModuleMeta, PortName};
 
-#[must_use = "events are history. drop them deliberately or not at all"]
-pub fn add(left: u64, right: u64) -> u64 {
-	left + right
-}
-#[must_use = "events are history. drop them deliberately or not at all"]
-pub fn hello() -> &'static str {
-	"deck online"
-}
 #[must_use = "events are history. drop them deliberately or not at all"]
 pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
 	let first_new = world.log.len();
@@ -43,39 +37,33 @@ pub fn replay(fixture_text: &str, script: &[Vec<Command>]) -> Result<World, Load
 
 #[cfg(test)]
 mod tests {
-	use crate::types::modules::ModuleId;
-
 	use super::*;
 	use rand_chacha::rand_core::RngCore;
 
+	/// Whole-history determinism belongs to the canaries. This owns the one
+	/// link they cannot see: that the seed in the fixture is the seed the
+	/// universe runs on, and that a different seed is a different universe.
 	#[test]
-	fn it_works() {
-		let result = add(2, 2);
-		assert_eq!(result, 4);
-	}
+	fn the_fixture_seeds_the_universe() {
+		let text = std::fs::read_to_string(concat!(
+			env!("CARGO_MANIFEST_DIR"),
+			"/../../fixtures/testudo.ron"
+		))
+		.expect("testudo should be readable");
 
-	#[test]
-	fn same_seed_same_universe() {
-		let mut a = World::new(0x00C0_FFEE);
-		let mut b = World::new(0x00C0_FFEE);
-		assert_eq!(a.rng.next_u64(), b.rng.next_u64());
-
-		let ea = crate::tick(
-			&mut a,
-			&[Command::SetBreaker {
-				id: ModuleId(2),
-				closed: true,
-			}],
-		);
-		let eb = crate::tick(
-			&mut b,
-			&[Command::SetBreaker {
-				id: ModuleId(2),
-				closed: true,
-			}],
+		let mut a = World::from_fixture_str(&text).expect("testudo should load");
+		let mut b = World::from_fixture_str(&text).expect("testudo should load");
+		assert_eq!(
+			a.rng.next_u64(),
+			b.rng.next_u64(),
+			"one hull, one seed, one stream"
 		);
 
-		assert_eq!(ea, eb);
-		assert_eq!(a.tick, b.tick);
+		let mut elsewhere = World::new(0x00C0_FFEE);
+		assert_ne!(
+			a.rng.next_u64(),
+			elsewhere.rng.next_u64(),
+			"a different seed is a different universe"
+		);
 	}
 }

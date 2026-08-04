@@ -1,36 +1,8 @@
-use sim::{Command, EventKind, ModuleId, World, replay, tick};
+use sim::{EventKind, World, replay, tick};
+mod common;
+use common::{id, load, power_up};
 
-const TESTUDO: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/testudo.ron");
-const TESTUDO_2155: &str = concat!(
-	env!("CARGO_MANIFEST_DIR"),
-	"/../../fixtures/testudo-2155.ron"
-);
-
-fn load(path: &str) -> World {
-	World::from_fixture_file(path).expect("fixture should load")
-}
-
-fn id(world: &World, label: &str) -> ModuleId {
-	world.find_label(label).expect("label should be aboard")
-}
-
-/// The script that brings a testudo up: battery online, both breakers shut.
-fn power_up(world: &World) -> Vec<Command> {
-	vec![
-		Command::SetSource {
-			id: id(world, "PWR-01"),
-			online: true,
-		},
-		Command::SetBreaker {
-			id: id(world, "BRK-01"),
-			closed: true,
-		},
-		Command::SetBreaker {
-			id: id(world, "BRK-02"),
-			closed: true,
-		},
-	]
-}
+use crate::common::{TESTUDO, TESTUDO_2155};
 
 #[test]
 fn the_battery_dies() {
@@ -47,7 +19,7 @@ fn the_battery_dies() {
 	}
 
 	let death = w
-		.log
+		.log()
 		.iter()
 		.find(|e| e.kind == EventKind::SourceDepleted { id: pwr })
 		.expect("she must die");
@@ -84,14 +56,14 @@ fn canary_v3() {
 		w
 	};
 	let (a, b) = (run(), run());
-	assert_eq!(a.log, b.log);
+	assert_eq!(a.log(), b.log());
 	assert!(
-		a.log
+		a.log()
 			.iter()
 			.any(|e| matches!(e.kind, EventKind::BreakerTripped { .. }))
 	);
 	assert!(
-		a.log
+		a.log()
 			.iter()
 			.any(|e| matches!(e.kind, EventKind::SourceDepleted { .. }))
 	);
