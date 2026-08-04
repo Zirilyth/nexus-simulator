@@ -1,9 +1,8 @@
 pub mod types;
+use crate::systems::commands::apply_commands;
 pub use types::events::{Command, Event, EventId, EventKind};
 pub use types::modules::{ModuleId, ModuleKind, ModuleMeta};
-pub use types::world::{Connection, World};
-
-use crate::systems::commands::apply_commands;
+pub use types::world::{Connection, LoadError, World};
 pub mod systems;
 
 #[must_use = "events are history. drop them deliberately or not at all"]
@@ -26,6 +25,20 @@ pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
 
 	world.tick += 1;
 	world.log[first_new..].to_vec()
+}
+
+/// Fold a command script over a fresh world — `U(seed, log)`, executable.
+/// Savegames, bug reports, and the history engine are all this one trick.
+///
+/// # Errors
+/// - [`LoadError::Parse`] — malformed RON (span included)
+/// - [`LoadError::UnknownLabel`] — a connection references a module not aboard
+pub fn replay(fixture_text: &str, script: &[Vec<Command>]) -> Result<World, LoadError> {
+	let mut world = World::from_fixture_str(fixture_text)?;
+	for batch in script {
+		let _ = tick(&mut world, batch);
+	}
+	Ok(world)
 }
 
 #[cfg(test)]

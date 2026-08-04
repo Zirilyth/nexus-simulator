@@ -30,7 +30,7 @@ impl SourceState {
 	}
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct PowerNet {
 	pub states: BTreeMap<ModuleId, PowerState>,
 	pub breakers: BTreeMap<ModuleId, BreakerState>,

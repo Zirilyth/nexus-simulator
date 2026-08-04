@@ -25,6 +25,8 @@ fn main() {
 	let mut world = world; // she mutates now
 	let mut queued: Vec<Command> = Vec::new();
 
+	let mut history: Vec<Vec<Command>> = Vec::new();
+
 	loop {
 		print!("deck> ");
 		let _ = io::stdout().flush();
@@ -81,6 +83,7 @@ fn main() {
 			(Some("tick"), n) => {
 				let n: u64 = n.and_then(|s| s.parse().ok()).unwrap_or(1);
 				for _ in 0..n {
+					history.push(queued.clone());
 					let events = tick(&mut world, &queued);
 					queued.clear();
 					for ev in &events {
@@ -88,6 +91,8 @@ fn main() {
 					}
 				}
 			}
+			(Some("save"), Some(file)) => save_history(&history, file),
+			(Some("replay"), Some(file)) => replay_history(&path, file),
 
 			(Some("log"), n) => {
 				let n: usize = n.and_then(|s| s.parse().ok()).unwrap_or(10);
@@ -225,4 +230,40 @@ fn print_event(world: &World, ev: &Event) {
 		EventKind::CommandRejected { reason } => format!("rejected: {reason:?}"),
 	};
 	println!("  #{:<4} t{:<4} {}{}", ev.id.0, ev.at_tick, what, cause);
+}
+fn save_history(history: &[Vec<Command>], file: &str) {
+	let cfg = ron::ser::PrettyConfig::default();
+	match ron::ser::to_string_pretty(&history, cfg) {
+		Ok(text) => match std::fs::write(file, text) {
+			Ok(()) => println!("  {} batches → {file}", history.len()),
+			Err(e) => println!("  cannot write {file}: {e}"),
+		},
+		Err(e) => println!("  cannot serialise: {e}"),
+	}
+}
+
+fn replay_history(fixture: &str, file: &str) {
+	let (Ok(text), Ok(fixture_text)) = (
+		std::fs::read_to_string(file),
+		std::fs::read_to_string(fixture),
+	) else {
+		println!("  cannot read {file} or {fixture}.");
+		return;
+	};
+	let script: Vec<Vec<Command>> = match ron::from_str(&text) {
+		Ok(s) => s,
+		Err(e) => {
+			println!("  cannot parse {file}: {e}");
+			return;
+		}
+	};
+	match sim::replay(&fixture_text, &script) {
+		Ok(w) => println!(
+			"  refolded {} batches → tick {}, {} events",
+			script.len(),
+			w.tick,
+			w.log.len()
+		),
+		Err(e) => println!("  replay failed: {e:?}"),
+	}
 }

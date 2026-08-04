@@ -1,4 +1,5 @@
 use crate::types::modules::ModuleId;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EventId(pub u64);
@@ -38,7 +39,7 @@ pub enum EventKind {
 		id: ModuleId,
 	},
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Command {
 	SetBreaker { id: ModuleId, closed: bool },
 	SetSource { id: ModuleId, online: bool },

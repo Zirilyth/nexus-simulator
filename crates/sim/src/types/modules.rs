@@ -41,7 +41,7 @@ pub enum ModuleKind {
 	Valve { open: bool },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ModuleId(pub u32);
 
 #[cfg(test)]

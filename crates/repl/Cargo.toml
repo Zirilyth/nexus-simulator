@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 sim = { path = "../sim"}
+ron = { workspace = true }
 
 [lints]
 workspace = true

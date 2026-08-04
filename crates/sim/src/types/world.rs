@@ -16,7 +16,7 @@ pub struct Connection {
 	pub to: (ModuleId, PortName),
 	pub run: String,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct World {
 	pub tick: u64,
 	pub next_event: u64,
