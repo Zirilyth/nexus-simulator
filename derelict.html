@@ -463,6 +463,53 @@
   </div>
 </section>
 
+<section id="phase4plan" style="--sys-colour: var(--acid)">
+  <div class="sys"><span class="path">sys://phase4</span> the build sheet — condition. the fault chase, gate one</div>
+  <h2>phase 4: the ship learns to lie</h2>
+  <p>Goal state: <em>a fault seeded into one module makes something three hops away misbehave, <code>scan</code> reports the misbehaviour without ever naming the cause, and I can find it from the deck alone.</em> Everything in phases 2–3 was mechanism. This is the first phase whose output is a question the player has to answer — and the first that can fail on taste rather than on tests.</p>
+
+  <h3>step 1 — capacity, on the suppliers</h3>
+  <div class="rule-card">
+    <span class="tag">maximums belong to the part</span>
+    <p><code>Bus { max_a: u32 }</code> (currently a unit variant) and <code>BatteryBank { capacity: u64, max_draw_a: u32 }</code> — <b>capacity is amp-ticks</b> (how much is left), <b>max_draw_a is amps</b> (how fast it can leave). Nothing has limited discharge rate until now. <b>Overdraw trips breakers:</b> a supplier over its maximum emits <code>CapacityExceeded { id, load_a, max_a }</code> and schedules trips for every closed breaker directly downstream — reuse <code>pending_trips</code>, so the thermal delay and the cause chain come free. A bus giving out blacks out both halves of a testudo; that is the intended drama, and it reads very differently in the log from one breaker tripping. <b>Testudo numbers:</b> VK-D12 bus at <b>30A</b> (29A ship load — one amp of margin, tighter than BRK-01's two), VK-B440 at <b>30A</b> max draw. <span class="note">the 2155 hull at 33A therefore fails at the bus AND at BRK-01. suppliers are checked before breakers: the bus failing is the more upstream truth, and blaming a breaker for a bus fault is a lie rather than a puzzle.</span></p>
+  </div>
+
+  <h3>step 2 — condition, on the suppliers only</h3>
+  <div class="rule-card">
+    <span class="tag">three bands, and one float multiply</span>
+    <p>A consumer's "capacity" is what it delivers into thermal or fluid, and neither network exists yet — so in phase 4 <b>a consumer is either drawing or dead</b>, and the ladder belongs to buses, breakers and batteries. <code>&gt; 0.70</code> <b>nominal</b>, full rating · <code>0.40–0.70</code> <b>derated</b>, rating × condition truncated · <code>0.00–0.40</code> <b>intermittent</b>, derated and may fail outright near its limit · <code>0.00</code> <b>dead</b>, supplies nothing. <b>A degraded breaker is the best fault in the game:</b> it trips below its nameplate, so the symptom is "the galley keeps going dark" and the cause is a part whose printed rating says it should be fine. <b>Derating is one <code>f32</code> multiply and one truncation</b> — IEEE 754 single multiplication is exactly-rounded and deterministic across machines; the purity card's danger is transcendentals and fused operations, not one <code>mul</code>. <span class="note">no powf, no accumulation, back to integer amps immediately. phase 4 is where floats enter the sim and this is the only shape they get until libm arrives.</span></p>
+  </div>
+
+  <h3>step 3 — intermittence, and the first real RNG draw</h3>
+  <div class="rule-card">
+    <span class="tag">nothing polls</span>
+    <p>Intermittence is evaluated <b>when the supply question is asked</b> — inside <code>settle_power</code>, once per marginal supplier — never on a timer. A supplier in the intermittent band whose load is within a margin of its derated limit draws from <code>world.rng</code> to decide whether it holds this settle. <b>This is the first thing in the project to consume the RNG.</b> Two consequences: the canaries finally test RNG discipline rather than just BTreeMap ordering, and the <em>count</em> of draws becomes part of the universe's identity — two runs that draw a different number of times have already diverged, even if every visible value matches. <span class="note">query methods stay pure. charge_of and friends must never draw.</span></p>
+  </div>
+
+  <h3>step 4 — seed-fault, through the boundary</h3>
+  <div class="rule-card">
+    <span class="tag">the dev command is still a command</span>
+    <p><code>Command::SeedFault { id, condition }</code> → <code>EventKind::ConditionDegraded { id, from, to }</code>, cause <code>None</code>, because the paracausal did it. Then <code>settle_power</code> with that event as cause, so everything the fault breaks names it. <b>"Hidden from normal output" means <code>scan</code> never mentions condition</b> — not that the event is hidden. The log is truth and <code>inspect</code> already shows condition; the deck's <em>instrument</em> is what must stay ignorant. <code>Condition::new</code> is the airlock: the REPL parses a float, and a bad one is a rejected command, not a panic. <span class="note">it goes through the boundary, so it lands in the log, so it replays. a dev hack that bypassed tick() would break every canary.</span></p>
+  </div>
+
+  <h3>step 5 — scan, the deliberate gap</h3>
+  <div class="rule-card">
+    <span class="tag">symptoms. never causes.</span>
+    <p><code>scan</code> reports per-module observable state and never a cause. The vocabulary, deliberately thin: <b>nominal</b> — energised, drawing its nameplate · <b>dark</b> — not energised · <b>intermittent</b> — dropped and returned within the last N ticks · <b>starved</b> — energised but its supplier is at or over limit. Nothing in that list names a module other than the one being reported, and nothing mentions condition, ratings, or the word "because". <span class="note">the moment scan says "LT-01 dark because BRK-01 is degraded", phase 4 has failed and the game is a debugger. if the chase feels flat, the fix is almost always symptoms named too directly — widen the gap, then test again.</span></p>
+  </div>
+
+  <h3>step 6 — the tests, then the honest part</h3>
+  <div class="rule-card">
+    <span class="tag">six green, then one question tests can't answer</span>
+    <p><b>(a) the_bus_gives_out:</b> load past the bus maximum → <code>CapacityExceeded</code>, both breakers open next tick. <b>(b) a_tired_breaker_trips_early:</b> seed BRK-01 to 0.5 → trips at 23A on a nameplate 25A. <b>(c) dead_modules_draw_nothing:</b> seed a load to 0.0 → ship total drops by its <code>draw_a</code>. <b>(d) faults_have_causes:</b> the chain from a dark light walks back through <code>ConditionDegraded</code> to a None. <b>(e) canary v4:</b> a script including a seeded fault AND intermittence, twice, byte-identical — the first canary that exercises the RNG. <b>(f) seeded_faults_replay:</b> a script with <code>SeedFault</code> refolds to an identical World. <b>Then:</b> seed a fault blind, chase it through scan / status / inspect, and decide whether it has the Hail Mary pull. <span class="note">twenty-one green tests cannot answer that question.</span></p>
+  </div>
+
+  <h3>rails</h3>
+  <div class="rule-card">
+    <span class="tag">do not — phase 4 edition</span>
+    <p>No thermal, no fluid (consumers stay two-state until phase 6). No automatic degradation, no wear, no owner bot — condition moves only when commanded; decay is phase 5's landlord. No transcendentals, no <code>powf</code>, no accumulating floats: one multiply, one truncation, back to integers. No polling — nothing evaluates intermittence on a timer. No scan colours or polish beyond function. No new module kinds; ten done properly beats two hundred done shallowly. Done = six tests green, canary v4 in CI, one honest playtest written up, and a decision-log line for anything this sheet didn't foresee.</p>
+  </div>
+</section>
 <section id="vocab" style="--sys-colour: var(--pink)">
   <div class="sys"><span class="path">sys://vocabulary</span> events &amp; verbs</div>
   <h2>the event vocabulary</h2>
