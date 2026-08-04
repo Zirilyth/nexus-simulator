@@ -29,7 +29,7 @@ pub struct PortName(pub String);
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum ModuleKind {
-	BatteryBank,
+	BatteryBank { capacity: u64 },
 	Bus,
 	Breaker { rating_a: u32 },
 	Scrubber,
@@ -53,7 +53,7 @@ mod tests {
 		// no `_` arm. ADD A VARIANT AND THIS STOPS COMPILING — that's the point.
 		fn describe(k: &ModuleKind) -> &'static str {
 			match k {
-				ModuleKind::BatteryBank => "battery bank",
+				ModuleKind::BatteryBank { .. } => "battery bank",
 				ModuleKind::Bus => "bus",
 				ModuleKind::Breaker { .. } => "breaker",
 				ModuleKind::Scrubber => "scrubber",

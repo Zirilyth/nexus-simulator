@@ -21,6 +21,7 @@ pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
 	// trips scheduled last tick open first: a thermal breaker acts late, and
 	// the delay is what keeps a trip from feeding back into its own cause.
 	crate::systems::power::tick_power(world);
+	crate::systems::power::tick_depletion(world);
 	apply_commands(world, commands);
 
 	world.tick += 1;

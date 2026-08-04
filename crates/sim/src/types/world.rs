@@ -109,6 +109,11 @@ impl World {
 		});
 		id
 	}
+
+	#[must_use]
+	pub fn charge_of(&self, id: ModuleId) -> Option<u64> {
+		self.power.sources.get(&id).map(|s| s.charge_at(self.tick))
+	}
 }
 
 #[test]

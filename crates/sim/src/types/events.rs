@@ -34,6 +34,9 @@ pub enum EventKind {
 	CommandRejected {
 		reason: RejectReason,
 	},
+	SourceDepleted {
+		id: ModuleId,
+	},
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {

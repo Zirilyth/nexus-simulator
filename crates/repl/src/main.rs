@@ -109,7 +109,7 @@ fn main() {
 
 fn kind_name(k: &ModuleKind) -> &'static str {
 	match k {
-		ModuleKind::BatteryBank => "battery",
+		ModuleKind::BatteryBank { .. } => "battery",
 		ModuleKind::Bus => "bus",
 		ModuleKind::Breaker { .. } => "breaker",
 		ModuleKind::Scrubber => "scrubber",
@@ -162,6 +162,9 @@ fn print_status(world: &World, label: &str) {
 	}
 	if let Some(online) = world.source_online(id) {
 		println!("  source  {}", if online { "ONLINE" } else { "offline" });
+		if let Some(charge) = world.charge_of(id) {
+			println!("  charge  {charge} amp-ticks");
+		}
 	}
 }
 
@@ -218,6 +221,7 @@ fn print_event(world: &World, ev: &Event) {
 			load_a,
 			rating_a
 		),
+		EventKind::SourceDepleted { id } => format!("{} DEPLETED — flat", name(id)),
 		EventKind::CommandRejected { reason } => format!("rejected: {reason:?}"),
 	};
 	println!("  #{:<4} t{:<4} {}{}", ev.id.0, ev.at_tick, what, cause);

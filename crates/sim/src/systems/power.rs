@@ -17,6 +17,17 @@ pub struct BreakerState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceState {
 	pub online: bool,
+	charge_anchor: u64,
+	anchor_tick: u64,
+	depletion_tick: Option<u64>,
+	rate_a: u32,
+	anchor_cause: Option<EventId>,
+}
+impl SourceState {
+	pub(crate) fn charge_at(self, tick: u64) -> u64 {
+		let burned = u64::from(self.rate_a) * tick.saturating_sub(self.anchor_tick);
+		self.charge_anchor.saturating_sub(burned)
+	}
 }
 
 #[derive(Debug, Default)]
@@ -125,6 +136,37 @@ pub(crate) fn settle_power(world: &mut World, cause: Option<EventId>) {
 			world.power.pending_trips.push((id, ev));
 		}
 	}
+	let now = world.tick;
+	let rates: Vec<(ModuleId, u32)> = world
+		.power
+		.sources
+		.keys()
+		.copied()
+		.collect::<Vec<_>>()
+		.into_iter()
+		.map(|id| (id, downstream_load(world, &adjacency, id).0))
+		.collect();
+
+	for (id, rate_a) in rates {
+		let s = world
+			.power
+			.sources
+			.get_mut(&id)
+			.expect("planned from this table");
+
+		if s.rate_a != rate_a {
+			s.charge_anchor = s.charge_at(now);
+			s.anchor_tick = now;
+			s.rate_a = rate_a;
+			s.anchor_cause = cause;
+		}
+
+		s.depletion_tick = if s.online && s.rate_a > 0 {
+			Some(s.anchor_tick + s.charge_anchor / u64::from(s.rate_a))
+		} else {
+			None
+		};
+	}
 }
 
 /// Directed adjacency over Power connections: the fixture wires supply→load, so
@@ -141,6 +183,36 @@ fn power_adjacency(world: &World) -> BTreeMap<ModuleId, Vec<ModuleId>> {
 		adj.entry(c.from.0).or_default().push(c.to.0);
 	}
 	adj
+}
+
+/// Sources whose depletion tick has arrived die before this tick's commands.
+/// The burn happened during the interval that just ended; a switch flipped now
+/// is too late to save her.
+pub fn tick_depletion(world: &mut World) {
+	let now = world.tick;
+	let dead: Vec<(ModuleId, Option<EventId>)> = world
+		.power
+		.sources
+		.iter()
+		.filter(|(_, s)| s.online && s.depletion_tick.is_some_and(|d| now >= d))
+		.map(|(id, s)| (*id, s.anchor_cause))
+		.collect();
+
+	for (id, anchor_cause) in dead {
+		let s = world
+			.power
+			.sources
+			.get_mut(&id)
+			.expect("planned from this table");
+		s.online = false;
+		s.charge_anchor = 0;
+		s.rate_a = 0;
+		s.depletion_tick = None;
+		// cause: the flip that fixed her final burn rate. walk it back and it
+		// still ends at a paracausal None.
+		let ev = world.emit(EventKind::SourceDepleted { id }, anchor_cause);
+		settle_power(world, Some(ev));
+	}
 }
 
 /// Everything fed by a breaker, and what the energised part of it draws.
@@ -177,8 +249,18 @@ impl PowerNet {
 		let mut net = PowerNet::default();
 		for (id, meta) in modules {
 			match meta.kind {
-				ModuleKind::BatteryBank => {
-					net.sources.insert(*id, SourceState { online: false });
+				ModuleKind::BatteryBank { capacity } => {
+					net.sources.insert(
+						*id,
+						SourceState {
+							online: false,
+							charge_anchor: capacity,
+							anchor_tick: 0,
+							depletion_tick: None,
+							rate_a: 0,
+							anchor_cause: None,
+						},
+					);
 					net.states.insert(*id, PowerState { energised: false });
 				}
 				ModuleKind::Breaker { .. } => {
