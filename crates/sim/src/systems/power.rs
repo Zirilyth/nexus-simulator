@@ -39,7 +39,7 @@ pub struct PowerNet {
 	pub(crate) states: BTreeMap<ModuleId, PowerState>,
 	pub(crate) breakers: BTreeMap<ModuleId, BreakerState>,
 	pub(crate) sources: BTreeMap<ModuleId, SourceState>,
-	pub(crate) pending_trips: Vec<(ModuleId, EventId)>,
+	pub(crate) pending_trips: BTreeMap<ModuleId, EventId>,
 }
 
 /// Trips scheduled last tick fire now. A thermal breaker is not instantaneous.
@@ -89,6 +89,7 @@ pub(crate) fn settle_power(world: &mut World, cause: Option<EventId>) {
 	let adjacency = power_adjacency(world);
 	let reached = energised_set(world, &adjacency);
 	let announced = emit_power_changes(world, &reached, cause);
+	schedule_supply_faults(world, &adjacency, &reached, &announced, cause);
 	schedule_overloads(world, &adjacency, &reached, &announced, cause);
 	reanchor_sources(world, &adjacency, cause);
 }
@@ -165,6 +166,12 @@ fn emit_power_changes(
 	announced
 }
 
+struct OverloadFault {
+	id: ModuleId,
+	load_a: u32,
+	rating_a: u32,
+	blame: Option<EventId>,
+}
 /// Overloaded breakers trip now and open next tick — a real thermal breaker
 /// does not act instantly, and the delay kills same-tick feedback.
 fn schedule_overloads(
@@ -175,17 +182,17 @@ fn schedule_overloads(
 	cause: Option<EventId>,
 ) {
 	// plan: every trip decided while borrowing immutably
-	let trips: Vec<(ModuleId, u32, u32, Option<EventId>)> = world
+	let trips: Vec<OverloadFault> = world
 		.power
 		.breakers
 		.iter()
 		.filter(|(id, b)| b.closed && reached.contains(id))
-		.filter_map(|(id, _)| {
+		.filter_map(|(id, _)| -> Option<OverloadFault> {
 			let ModuleKind::Breaker { rating_a } = world.modules[id].kind else {
 				return None;
 			};
 			let (load_a, downstream) = downstream_load(world, adj, *id);
-			let already = world.power.pending_trips.iter().any(|(p, _)| p == id);
+			let already: bool = world.power.pending_trips.iter().any(|(p, _)| p == id);
 			if load_a <= rating_a || already {
 				return None;
 			}
@@ -196,21 +203,94 @@ fn schedule_overloads(
 				.rev()
 				.find(|(m, _)| downstream.contains(m))
 				.map_or(cause, |(_, ev)| Some(*ev));
-			Some((*id, load_a, rating_a, blame))
+
+			Some(OverloadFault {
+				id: *id,
+				load_a,
+				rating_a,
+				blame,
+			})
 		})
 		.collect();
 
 	// apply
-	for (id, load_a, rating_a, blame) in trips {
+	for fault in trips {
 		let ev = world.emit(
 			EventKind::BreakerTripped {
-				id,
-				load_a,
-				rating_a,
+				id: fault.id,
+				load_a: fault.load_a,
+				rating_a: fault.rating_a,
 			},
-			blame,
+			fault.blame,
 		);
-		world.power.pending_trips.push((id, ev));
+
+		world.power.pending_trips.entry(fault.id).or_insert(ev);
+	}
+}
+
+struct SupplyFault {
+	id: ModuleId,
+	load_a: u32,
+	supply_limit_a: u32,
+	blame: Option<EventId>,
+	victims: BTreeSet<ModuleId>,
+}
+
+fn schedule_supply_faults(
+	world: &mut World,
+	adj: &Adjacency,
+	reached: &BTreeSet<ModuleId>,
+	announced: &[(ModuleId, EventId)],
+	cause: Option<EventId>,
+) {
+	let supply_faults: Vec<SupplyFault> = world
+		.modules()
+		.iter()
+		.filter(|(id, _)| reached.contains(id))
+		.filter_map(|(id, meta)| -> Option<SupplyFault> {
+			let (load_a, downstream) = downstream_load(world, adj, *id);
+			let supply_limit_a = supply_limit(meta)?;
+
+			if load_a <= supply_limit_a {
+				return None;
+			}
+			let victims = world
+				.power
+				.breakers
+				.iter()
+				.filter(|(id, state)| downstream.contains(id) && state.closed)
+				.map(|(id, _)| *id)
+				.collect();
+
+			let blame = announced
+				.iter()
+				.rev()
+				.find(|(m, _)| downstream.contains(m))
+				.map_or(cause, |(_, ev)| Some(*ev));
+
+			Some(SupplyFault {
+				id: *id,
+				load_a,
+				supply_limit_a,
+				blame,
+				victims,
+			})
+		})
+		.collect();
+
+	// apply
+	for fault in supply_faults {
+		let ev = world.emit(
+			EventKind::CapacityExceeded {
+				id: fault.id,
+				load_a: fault.load_a,
+				rating_a: fault.supply_limit_a,
+			},
+			fault.blame,
+		);
+		for victim in fault.victims {
+			world.power.pending_trips.entry(victim).or_insert(ev);
+		}
 	}
 }
 
@@ -260,7 +340,7 @@ fn downstream_load(world: &World, adj: &Adjacency, from: ModuleId) -> (u32, BTre
 				continue;
 			}
 			if world.power.states.get(&next).is_some_and(|s| s.energised) {
-				total += world.modules[&next].draw_a;
+				total += world.modules()[&next].draw_a;
 			}
 			queue.push_back(next);
 		}
@@ -275,7 +355,7 @@ impl PowerNet {
 		let mut net = PowerNet::default();
 		for (id, meta) in modules {
 			match meta.kind {
-				ModuleKind::BatteryBank { capacity } => {
+				ModuleKind::BatteryBank { capacity, .. } => {
 					net.sources.insert(
 						*id,
 						SourceState {
@@ -293,7 +373,7 @@ impl PowerNet {
 					net.breakers.insert(*id, BreakerState { closed: true });
 					net.states.insert(*id, PowerState { energised: false });
 				}
-				ModuleKind::Bus
+				ModuleKind::Bus { .. }
 				| ModuleKind::Scrubber
 				| ModuleKind::Heater
 				| ModuleKind::Pump
@@ -306,5 +386,23 @@ impl PowerNet {
 			}
 		}
 		net
+	}
+}
+fn supply_limit(meta: &ModuleMeta) -> Option<u32> {
+	match meta.kind {
+		ModuleKind::Bus { max_a } => Some(max_a),
+		ModuleKind::BatteryBank {
+			max_draw_a,
+			capacity: _,
+		} => Some(max_draw_a),
+
+		ModuleKind::Breaker { .. }
+		| ModuleKind::Scrubber
+		| ModuleKind::Heater
+		| ModuleKind::Pump
+		| ModuleKind::Sensor
+		| ModuleKind::Lights
+		| ModuleKind::Console
+		| ModuleKind::Valve { .. } => None,
 	}
 }

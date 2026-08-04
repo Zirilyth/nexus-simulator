@@ -29,8 +29,8 @@ pub struct PortName(pub String);
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum ModuleKind {
-	BatteryBank { capacity: u64 },
-	Bus,
+	BatteryBank { capacity: u64, max_draw_a: u32 },
+	Bus { max_a: u32 },
 	Breaker { rating_a: u32 },
 	Scrubber,
 	Heater,
@@ -54,7 +54,7 @@ mod tests {
 		fn describe(k: &ModuleKind) -> &'static str {
 			match k {
 				ModuleKind::BatteryBank { .. } => "battery bank",
-				ModuleKind::Bus => "bus",
+				ModuleKind::Bus { .. } => "bus",
 				ModuleKind::Breaker { .. } => "breaker",
 				ModuleKind::Scrubber => "scrubber",
 				ModuleKind::Heater => "heater",

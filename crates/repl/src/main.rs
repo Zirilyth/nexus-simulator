@@ -115,7 +115,7 @@ fn main() {
 fn kind_name(k: &ModuleKind) -> &'static str {
 	match k {
 		ModuleKind::BatteryBank { .. } => "battery",
-		ModuleKind::Bus => "bus",
+		ModuleKind::Bus { .. } => "bus",
 		ModuleKind::Breaker { .. } => "breaker",
 		ModuleKind::Scrubber => "scrubber",
 		ModuleKind::Heater => "heater",
@@ -222,6 +222,16 @@ fn print_event(world: &World, ev: &Event) {
 			rating_a,
 		} => format!(
 			"{} TRIPPED — {}A on a {}A breaker",
+			name(id),
+			load_a,
+			rating_a
+		),
+		EventKind::CapacityExceeded {
+			id,
+			load_a,
+			rating_a,
+		} => format!(
+			"{} OVERLOADED - {}A on a bus rated for {}A",
 			name(id),
 			load_a,
 			rating_a
