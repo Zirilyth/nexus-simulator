@@ -1,9 +1,10 @@
 pub mod types;
-
 pub use types::events::{Command, Event, EventId, EventKind};
-pub use types::ids::{ModuleId, NetworkKind, PortName};
-pub use types::meta::{ModuleKind, ModuleMeta};
+pub use types::modules::{ModuleKind, ModuleMeta};
 pub use types::world::{Connection, World};
+
+use crate::systems::commands::apply_commands;
+pub mod systems;
 
 #[must_use = "events are history. drop them deliberately or not at all"]
 pub fn add(left: u64, right: u64) -> u64 {
@@ -15,13 +16,19 @@ pub fn hello() -> &'static str {
 }
 #[must_use = "events are history. drop them deliberately or not at all"]
 pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
-	for _cmd in commands {}
+	let first_new = world.log.len();
+
+	apply_commands(world, commands);
+	crate::systems::power::tick_power(world);
+
 	world.tick += 1;
-	Vec::new()
+	world.log[first_new..].to_vec()
 }
 
 #[cfg(test)]
 mod tests {
+	use crate::types::modules::ModuleId;
+
 	use super::*;
 	use rand_chacha::rand_core::RngCore;
 
@@ -37,8 +44,20 @@ mod tests {
 		let mut b = World::new(0x00C0_FFEE);
 		assert_eq!(a.rng.next_u64(), b.rng.next_u64());
 
-		let ea = crate::tick(&mut a, &[Command::Wait]);
-		let eb = crate::tick(&mut b, &[Command::Wait]);
+		let ea = crate::tick(
+			&mut a,
+			&[Command::SetBreaker {
+				id: ModuleId(2),
+				closed: true,
+			}],
+		);
+		let eb = crate::tick(
+			&mut b,
+			&[Command::SetBreaker {
+				id: ModuleId(2),
+				closed: true,
+			}],
+		);
 
 		assert_eq!(ea, eb);
 		assert_eq!(a.tick, b.tick);

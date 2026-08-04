@@ -1,11 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ModuleId(pub u32);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PortName(pub String);
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
 pub enum NetworkKind {
 	Power,
@@ -16,7 +10,8 @@ pub enum NetworkKind {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use crate::types::modules::ModuleId;
+
 	use std::collections::BTreeMap;
 
 	#[test]

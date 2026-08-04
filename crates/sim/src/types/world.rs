@@ -1,8 +1,10 @@
+use crate::systems::power::PowerNet;
 use crate::types::condition::Condition;
 use crate::types::events::Event;
 use crate::types::fixture::{ResolvedShip, ShipFixture};
-use crate::types::ids::{ModuleId, NetworkKind, PortName};
-use crate::types::meta::ModuleMeta;
+use crate::types::ids::NetworkKind;
+use crate::types::modules::{ModuleId, ModuleMeta, PortName};
+use crate::{EventId, EventKind};
 use rand_chacha::ChaCha8Rng;
 use rand_chacha::rand_core::SeedableRng;
 use std::collections::BTreeMap;
@@ -17,11 +19,13 @@ pub struct Connection {
 #[derive(Debug)]
 pub struct World {
 	pub tick: u64,
+	pub next_event: u64,
 	pub rng: ChaCha8Rng,
 	pub modules: BTreeMap<ModuleId, ModuleMeta>,
 	pub condition: BTreeMap<ModuleId, Condition>,
 	pub connections: Vec<Connection>,
 	pub as_built: Vec<Connection>,
+	pub power: PowerNet,
 	pub log: Vec<Event>,
 }
 
@@ -33,14 +37,11 @@ pub enum LoadError {
 }
 
 impl World {
-	/// .
+	/// Load a ship from RON fixture text.
 	///
-	/// # Panics
-	///
-	/// Panics if .
-	/// more than 4 billion modules on one hull
 	/// # Errors
-	/// - [`OverflowError::Parse`]
+	/// - [`LoadError::Parse`] — malformed RON (span included)
+	/// - [`LoadError::UnknownLabel`] — a connection references a module not aboard
 	pub fn from_fixture_str(text: &str) -> Result<Self, LoadError> {
 		let fx: ShipFixture = ron::from_str(text).map_err(LoadError::Parse)?;
 		let resolved = ResolvedShip::try_from(fx)?;
@@ -61,13 +62,34 @@ impl World {
 	pub fn new(seed: u64) -> Self {
 		World {
 			tick: 0,
+			next_event: 0,
 			rng: ChaCha8Rng::seed_from_u64(seed),
 			modules: BTreeMap::new(),
 			condition: BTreeMap::new(),
 			connections: Vec::new(),
 			as_built: Vec::new(),
+			power: PowerNet::default(),
 			log: Vec::new(),
 		}
+	}
+	#[must_use]
+	pub fn find_label(&self, label: &str) -> Option<ModuleId> {
+		self.modules
+			.iter()
+			.find(|(_, m)| m.label == label)
+			.map(|(id, _)| *id)
+	}
+
+	pub(crate) fn emit(&mut self, kind: EventKind, cause: Option<EventId>) -> EventId {
+		let id = EventId(self.next_event);
+		self.next_event += 1;
+		self.log.push(Event {
+			id,
+			at_tick: self.tick,
+			cause,
+			kind,
+		});
+		id
 	}
 }
 

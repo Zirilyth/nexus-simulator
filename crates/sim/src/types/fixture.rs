@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-
+use crate::systems::power::PowerNet;
 use crate::types::condition::Condition;
 use crate::types::ids::NetworkKind;
-use crate::types::meta::ModuleKind;
+use crate::types::modules::{ModuleDef, ModuleId, ModuleMeta, PortName};
 use crate::types::world::LoadError;
-use crate::{Connection, ModuleId, ModuleMeta, PortName, World};
+use crate::{Connection, World};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShipFixture {
@@ -43,6 +43,7 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 					part: m.part.clone(),
 					serial: m.serial.clone(),
 					made: m.made,
+					power_draw: m.power_draw,
 				},
 				m.condition,
 			));
@@ -81,9 +82,12 @@ impl From<ResolvedShip> for World {
 			modules.insert(id, meta);
 			condition.insert(id, cond);
 		}
+		let power = PowerNet::from_modules(&modules);
+
 		World {
 			modules,
 			condition,
+			power,
 			as_built: ship.connections.clone(), // evaluated first (source order)…
 			connections: ship.connections,      // …then the original moves. no waste, no assignment
 			..World::new(ship.seed)             // tick, rng, log from the one blessed constructor
@@ -101,18 +105,6 @@ pub struct RoomDef {
 pub struct RunDef {
 	pub id: String,
 	pub cap: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModuleDef {
-	pub label: String,
-	pub kind: ModuleKind,
-	pub room: String,
-	pub maker: String,
-	pub part: String,
-	pub serial: String,
-	pub made: f64,
-	pub condition: Condition,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

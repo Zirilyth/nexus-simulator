@@ -1,3 +1,5 @@
+use crate::types::modules::ModuleId;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EventId(pub u64);
 
@@ -12,8 +14,35 @@ pub struct Event {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EventKind {
 	WorldLoaded,
+	BreakerSet {
+		id: ModuleId,
+		closed: bool,
+	},
+	SourceSet {
+		id: ModuleId,
+		online: bool,
+	},
+	PowerChanged {
+		id: ModuleId,
+		energised: bool,
+	},
+	BreakerTripped {
+		id: ModuleId,
+		load_a: u32,
+		rating_a: u32,
+	},
+	CommandRejected {
+		reason: RejectReason,
+	},
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
-	Wait,
+	SetBreaker { id: ModuleId, closed: bool },
+	SetSource { id: ModuleId, online: bool },
+}
+#[derive(Debug, Clone, PartialEq)]
+pub enum RejectReason {
+	NoSuchModule(ModuleId),
+	NotABreaker(ModuleId),
+	NotASource(ModuleId),
 }
