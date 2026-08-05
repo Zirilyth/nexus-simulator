@@ -7,7 +7,7 @@ rooms: [ (id: "R1", name: "cabin"), (id: "R2", name: "engineering") ],
 runs: [ (id: "GALLEY", cap: 3), (id: "ENG_TRUNK", cap: 6), (id: "LOCAL", cap: 99) ],
 modules: [
 (label: "PWR-01", kind: BatteryBank(capacity: 144_000, max_draw_a: 40), room: "R2", maker: "Vostok", part: "VK-B440", serial: "VK-2149-4401", made: 2149.05, condition: 1.0, draw_a: 0),
-(label: "PWR-02", kind: Bus(max_a: 20), room: "R2", maker: "Vostok", part: "VK-D12", serial: "VK-2149-1203", made: 2149.05, condition: 1.0, draw_a: 0),
+(label: "PWR-02", kind: Bus(max_a: 40), room: "R2", maker: "Vostok", part: "VK-D12", serial: "VK-2149-1203", made: 2149.05, condition: 1.0, draw_a: 0),
 (label: "BRK-01", kind: Breaker(rating_a: 25), room: "R2", maker: "Vostok", part: "VK-F25", serial: "VK-2149-2517", made: 2149.05, condition: 1.0, draw_a: 0),
 (label: "BRK-02", kind: Breaker(rating_a: 25), room: "R2", maker: "Vostok", part: "VK-F25", serial: "VK-2149-2518", made: 2149.05, condition: 1.0, draw_a: 0),
 (label: "LSS-01", kind: Scrubber, room: "R1", maker: "Vostok", part: "VK-S200", serial: "VK-2149-0071", made: 2149.05, condition: 1.0, draw_a: 6),
