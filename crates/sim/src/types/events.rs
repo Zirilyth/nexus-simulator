@@ -31,11 +31,13 @@ pub enum EventKind {
 		id: ModuleId,
 		load_a: u32,
 		rating_a: u32,
+		degraded_rating_a: u32,
 	},
 	CapacityExceeded {
 		id: ModuleId,
 		load_a: u32,
 		rating_a: u32,
+		degraded_rating_a: u32,
 	},
 	CommandRejected {
 		reason: RejectReason,

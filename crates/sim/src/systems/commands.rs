@@ -11,7 +11,7 @@ pub fn apply_commands(world: &mut World, commands: &[Command]) {
 					let ev = world.emit(EventKind::BreakerSet { id, closed }, None); // paracausal
 					settle_power(world, Some(ev));
 				} else {
-					let reason = if world.modules().contains_key(&id) {
+					let reason = if world.modules.contains_key(&id) {
 						RejectReason::NotABreaker(id)
 					} else {
 						RejectReason::NoSuchModule(id)
@@ -25,7 +25,7 @@ pub fn apply_commands(world: &mut World, commands: &[Command]) {
 					let ev = world.emit(EventKind::SourceSet { id, online }, None); // paracausal
 					settle_power(world, Some(ev));
 				} else {
-					let reason = if world.modules().contains_key(&id) {
+					let reason = if world.modules.contains_key(&id) {
 						RejectReason::NotASource(id)
 					} else {
 						RejectReason::NoSuchModule(id)

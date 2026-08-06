@@ -220,21 +220,25 @@ fn print_event(world: &World, ev: &Event) {
 			id,
 			load_a,
 			rating_a,
+			degraded_rating_a,
 		} => format!(
-			"{} TRIPPED — {}A on a {}A breaker",
+			"{} TRIPPED — {}A on a {}A breaker - Effectively {}A",
 			name(id),
 			load_a,
-			rating_a
+			rating_a,
+			degraded_rating_a
 		),
 		EventKind::CapacityExceeded {
 			id,
 			load_a,
 			rating_a,
+			degraded_rating_a,
 		} => format!(
-			"{} OVERLOADED - {}A on a bus rated for {}A",
+			"{} OVERLOADED - {}A on a bus rated for {}A - Effectively {}A",
 			name(id),
 			load_a,
-			rating_a
+			rating_a,
+			degraded_rating_a
 		),
 		EventKind::SourceDepleted { id } => format!("{} DEPLETED — flat", name(id)),
 		EventKind::CommandRejected { reason } => format!("rejected: {reason:?}"),

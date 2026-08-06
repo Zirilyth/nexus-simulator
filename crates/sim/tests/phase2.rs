@@ -102,6 +102,7 @@ fn the_galley_trap() {
 				id: brk01,
 				load_a: 27,
 				rating_a: 25,
+				degraded_rating_a: 25,
 			}
 	});
 	assert!(tripped, "27A on a 25A breaker: {first:#?}");

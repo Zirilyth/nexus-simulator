@@ -1,8 +1,8 @@
-use crate::ModuleMeta;
 use crate::types::events::{EventId, EventKind};
 use crate::types::ids::NetworkKind;
 use crate::types::modules::{ModuleId, ModuleKind};
 use crate::types::world::World;
+use crate::{Condition, ModuleMeta};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 type Adjacency = BTreeMap<ModuleId, Vec<ModuleId>>;
@@ -170,6 +170,7 @@ struct OverloadFault {
 	id: ModuleId,
 	load_a: u32,
 	rating_a: u32,
+	degraded_rating_a: u32,
 	blame: Option<EventId>,
 }
 /// Overloaded breakers trip now and open next tick — a real thermal breaker
@@ -191,9 +192,11 @@ fn schedule_overloads(
 			let ModuleKind::Breaker { rating_a } = world.modules[id].kind else {
 				return None;
 			};
+			let condition = world.condition[id];
+			let degraded_rating_a = degraded_rating(rating_a, condition);
 			let (load_a, downstream) = downstream_load(world, adj, *id);
-			let already: bool = world.power.pending_trips.iter().any(|(p, _)| p == id);
-			if load_a <= rating_a || already {
+			let already = world.power.pending_trips.contains_key(id);
+			if load_a <= degraded_rating_a || already {
 				return None;
 			}
 			// the last load to come alive under this breaker is what broke it;
@@ -208,6 +211,7 @@ fn schedule_overloads(
 				id: *id,
 				load_a,
 				rating_a,
+				degraded_rating_a,
 				blame,
 			})
 		})
@@ -220,6 +224,7 @@ fn schedule_overloads(
 				id: fault.id,
 				load_a: fault.load_a,
 				rating_a: fault.rating_a,
+				degraded_rating_a: fault.degraded_rating_a,
 			},
 			fault.blame,
 		);
@@ -232,6 +237,7 @@ struct SupplyFault {
 	id: ModuleId,
 	load_a: u32,
 	supply_limit_a: u32,
+	degraded_rating_a: u32,
 	blame: Option<EventId>,
 	victims: BTreeSet<ModuleId>,
 }
@@ -250,8 +256,9 @@ fn schedule_supply_faults(
 		.filter_map(|(id, meta)| -> Option<SupplyFault> {
 			let (load_a, downstream) = downstream_load(world, adj, *id);
 			let supply_limit_a = supply_limit(meta)?;
-
-			if load_a <= supply_limit_a {
+			let condition = world.condition[id];
+			let degraded_limit_a = degraded_rating(supply_limit_a, condition);
+			if load_a <= degraded_limit_a {
 				return None;
 			}
 			let victims = world
@@ -272,6 +279,7 @@ fn schedule_supply_faults(
 				id: *id,
 				load_a,
 				supply_limit_a,
+				degraded_rating_a: degraded_limit_a,
 				blame,
 				victims,
 			})
@@ -285,6 +293,7 @@ fn schedule_supply_faults(
 				id: fault.id,
 				load_a: fault.load_a,
 				rating_a: fault.supply_limit_a,
+				degraded_rating_a: fault.degraded_rating_a,
 			},
 			fault.blame,
 		);
@@ -340,7 +349,7 @@ fn downstream_load(world: &World, adj: &Adjacency, from: ModuleId) -> (u32, BTre
 				continue;
 			}
 			if world.power.states.get(&next).is_some_and(|s| s.energised) {
-				total += world.modules()[&next].draw_a;
+				total += world.modules[&next].draw_a;
 			}
 			queue.push_back(next);
 		}
@@ -391,10 +400,7 @@ impl PowerNet {
 fn supply_limit(meta: &ModuleMeta) -> Option<u32> {
 	match meta.kind {
 		ModuleKind::Bus { max_a } => Some(max_a),
-		ModuleKind::BatteryBank {
-			max_draw_a,
-			capacity: _,
-		} => Some(max_draw_a),
+		ModuleKind::BatteryBank { max_draw_a, .. } => Some(max_draw_a),
 
 		ModuleKind::Breaker { .. }
 		| ModuleKind::Scrubber
@@ -404,5 +410,22 @@ fn supply_limit(meta: &ModuleMeta) -> Option<u32> {
 		| ModuleKind::Lights
 		| ModuleKind::Console
 		| ModuleKind::Valve { .. } => None,
+	}
+}
+
+//Rating Buffer is what condition value starts to effect the rating of parts
+const RATING_BUFFER: f32 = 0.7;
+
+//Its intended to round down to whole amps, so this is fine
+#[allow(
+	clippy::cast_precision_loss,
+	clippy::cast_possible_truncation,
+	clippy::cast_sign_loss
+)]
+fn degraded_rating(rating_a: u32, condition: Condition) -> u32 {
+	if condition.get() >= RATING_BUFFER {
+		rating_a
+	} else {
+		(rating_a as f32 * (condition.get() / (RATING_BUFFER))) as u32
 	}
 }
