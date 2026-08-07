@@ -1,5 +1,5 @@
 #![allow(clippy::print_stdout, clippy::print_stderr)]
-use sim::{Command, Event, EventKind, ModuleId, ModuleKind, World, tick};
+use sim::{Command, Condition, Event, EventKind, ModuleId, ModuleKind, World, tick};
 use std::io::{self, BufRead, Write};
 fn main() {
 	let path = std::env::args()
@@ -55,7 +55,7 @@ fn main() {
 			(Some("inspect"), Some(label)) => {
 				match world.modules().iter().find(|(_, m)| m.label == label) {
 					Some((id, m)) => {
-						let cond = world.condition_of(*id);
+						let cond = world.condition_of(*id).map(Condition::get);
 						println!("  {} — {}", m.label, kind_name(&m.kind));
 						println!("  maker  {:<10} part {}", m.maker, m.part);
 						println!("  serial {}", m.serial);
@@ -91,6 +91,10 @@ fn main() {
 					}
 				}
 			}
+			(Some("condition"), Some(label)) => match words.next() {
+				Some(value) => queue_condition(&world, &mut queued, label, value),
+				None => println!(" usage: condition <LABEL> <0.0-1.0>"),
+			},
 			(Some("save"), Some(file)) => save_history(&history, file),
 			(Some("replay"), Some(file)) => replay_history(&path, file),
 
@@ -134,6 +138,7 @@ fn print_usage() {
 		("inspect <LABEL>", "meta: maker, part, serial, made"),
 		("status <LABEL>", "power state, draw, actuator position"),
 		("source on|off <LABEL>", "queue a source command"),
+		("condition <LABEL> <0.0-1.0>", "set a module's condition"),
 		("breaker open|close <LABEL>", "queue a breaker command"),
 		("tick [n]", "submit the queue, run n ticks (default 1)"),
 		("log [n]", "last n events, causes as ← #id (default 10)"),
@@ -192,6 +197,26 @@ fn queue_breaker(world: &World, queued: &mut Vec<Command>, label: &str, closed: 
 		None => println!("  no module '{label}' aboard."),
 	}
 }
+fn queue_condition(world: &World, queued: &mut Vec<Command>, label: &str, condition: &str) {
+	match world.find_label(label) {
+		Some(id) => {
+			let Ok(value) = condition.parse::<f32>() else {
+				println!("Value {condition} is not a valid condition");
+				return;
+			};
+			let Ok(cond) = Condition::new(value) else {
+				println!("Value {value:.2} is outside of bounds, must be within 0.0-1.0");
+				return;
+			};
+			queued.push(Command::SetCondition {
+				id,
+				new_condition: cond,
+			});
+			println!("  queued. (commands land on 'tick')");
+		}
+		None => println!("  no module '{label}' aboard."),
+	}
+}
 
 fn print_event(world: &World, ev: &Event) {
 	let name = |id: &ModuleId| {
@@ -242,6 +267,9 @@ fn print_event(world: &World, ev: &Event) {
 		),
 		EventKind::SourceDepleted { id } => format!("{} DEPLETED — flat", name(id)),
 		EventKind::CommandRejected { reason } => format!("rejected: {reason:?}"),
+		EventKind::ConditionChanged { id, from, to } => {
+			format!("{} condition changed from {from:.2} to {to:.2}", name(id))
+		}
 	};
 	println!("  #{:<4} t{:<4} {}{}", ev.id.0, ev.at_tick, what, cause);
 }

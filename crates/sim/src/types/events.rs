@@ -1,4 +1,4 @@
-use crate::types::modules::ModuleId;
+use crate::{Condition, types::modules::ModuleId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -45,11 +45,26 @@ pub enum EventKind {
 	SourceDepleted {
 		id: ModuleId,
 	},
+	ConditionChanged {
+		id: ModuleId,
+		from: f32,
+		to: f32,
+	},
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Command {
-	SetBreaker { id: ModuleId, closed: bool },
-	SetSource { id: ModuleId, online: bool },
+	SetBreaker {
+		id: ModuleId,
+		closed: bool,
+	},
+	SetSource {
+		id: ModuleId,
+		online: bool,
+	},
+	SetCondition {
+		id: ModuleId,
+		new_condition: Condition,
+	},
 }
 #[derive(Debug, Clone, PartialEq)]
 pub enum RejectReason {

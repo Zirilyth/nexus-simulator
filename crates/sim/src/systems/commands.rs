@@ -33,6 +33,28 @@ pub fn apply_commands(world: &mut World, commands: &[Command]) {
 					world.emit(EventKind::CommandRejected { reason }, None);
 				}
 			}
+			Command::SetCondition { id, new_condition } => {
+				if let Some(current) = world.condition.get_mut(&id) {
+					let old_condition = current.get();
+					*current = new_condition;
+					let ev = world.emit(
+						EventKind::ConditionChanged {
+							id,
+							from: old_condition,
+							to: new_condition.get(),
+						},
+						None,
+					);
+					settle_power(world, Some(ev));
+				} else {
+					world.emit(
+						EventKind::CommandRejected {
+							reason: RejectReason::NoSuchModule(id),
+						},
+						None,
+					);
+				}
+			}
 		}
 	}
 }
