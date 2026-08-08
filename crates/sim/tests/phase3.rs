@@ -8,7 +8,7 @@ use crate::common::{TESTUDO, TESTUDO_2155};
 fn the_battery_dies() {
 	let mut w = load(TESTUDO);
 	let pwr = id(&w, "PWR-01");
-	let script = power_up(&w);
+	let script: Vec<sim::Command> = power_up(&w);
 	let _ = tick(&mut w, &script);
 
 	// one tick of burn already happened; charge is derived at the current tick
