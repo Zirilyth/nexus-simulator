@@ -46,10 +46,15 @@ pub struct PowerNet {
 pub(crate) fn tick_power(world: &mut World) {
 	let pending = std::mem::take(&mut world.power.pending_trips);
 	for (id, trip_event) in pending {
-		if let Some(b) = world.power.breakers.get_mut(&id) {
-			b.closed = false;
-		}
-		settle_power(world, Some(trip_event));
+		let Some(b) = world.power.breakers.get_mut(&id) else {
+			continue;
+		};
+		b.closed = false;
+		let ev = world.emit(
+			EventKind::BreakerSet { id, closed: false },
+			Some(trip_event),
+		);
+		settle_power(world, Some(ev));
 	}
 }
 /// Sources whose depletion tick has arrived die before this tick's commands.
@@ -348,13 +353,22 @@ fn downstream_load(world: &World, adj: &Adjacency, from: ModuleId) -> (u32, BTre
 			if !seen.insert(next) {
 				continue;
 			}
+
 			if world.power.states.get(&next).is_some_and(|s| s.energised) {
-				total += world.modules[&next].draw_a;
+				total += effective_draw(world.modules[&next].draw_a, true, world.condition[&next]);
 			}
 			queue.push_back(next);
 		}
 	}
 	(total, seen)
+}
+
+fn effective_draw(draw_a: u32, energised: bool, condition: Condition) -> u32 {
+	if condition.get() == 0.0 || !energised {
+		0
+	} else {
+		draw_a
+	}
 }
 
 impl PowerNet {
