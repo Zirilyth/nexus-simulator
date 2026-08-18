@@ -1,9 +1,10 @@
-use crate::systems::power::PowerNet;
+use crate::systems::power::{PowerNet, sagging_suppliers};
 use crate::types::condition::Condition;
 use crate::types::events::Event;
 use crate::types::fixture::{ResolvedShip, ShipFixture};
 use crate::types::ids::NetworkKind;
 use crate::types::modules::{ModuleId, ModuleMeta, PortName};
+use crate::types::symptom::Symptom;
 use crate::{EventId, EventKind};
 use rand_chacha::ChaCha8Rng;
 use rand_chacha::rand_core::SeedableRng;
@@ -128,6 +129,18 @@ impl World {
 			kind,
 		});
 		id
+	}
+	#[must_use]
+	pub fn symptom_of(&self, id: ModuleId) -> Option<Symptom> {
+		if self.is_energised(id)? {
+			if sagging_suppliers(self).contains(&id) {
+				Some(Symptom::Starved)
+			} else {
+				Some(Symptom::Nominal)
+			}
+		} else {
+			Some(Symptom::Dark)
+		}
 	}
 
 	#[must_use]

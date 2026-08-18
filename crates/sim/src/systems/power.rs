@@ -443,3 +443,22 @@ fn degraded_rating(rating_a: u32, condition: Condition) -> u32 {
 		(rating_a as f32 * (condition.get() / (RATING_BUFFER))) as u32
 	}
 }
+
+pub(crate) fn sagging_suppliers(world: &World) -> BTreeSet<ModuleId> {
+	let adj = power_adjacency(world);
+	world
+		.modules
+		.iter()
+		.filter_map(|(id, meta)| -> Option<BTreeSet<ModuleId>> {
+			let limit = supply_limit(meta)?;
+			let (load, seen) = downstream_load(world, &adj, *id);
+
+			let degraded_limit = degraded_rating(limit, world.condition[id]);
+			if load * 10 >= degraded_limit * 8 && load > 0 {
+				return Some(seen);
+			}
+			None
+		})
+		.flatten()
+		.collect()
+}

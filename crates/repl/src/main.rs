@@ -1,5 +1,5 @@
 #![allow(clippy::print_stdout, clippy::print_stderr)]
-use sim::{Command, Condition, Event, EventKind, ModuleId, ModuleKind, World, tick};
+use sim::{Command, Condition, Event, EventKind, ModuleId, ModuleKind, Symptom, World, tick};
 use std::io::{self, BufRead, Write};
 fn main() {
 	let path = std::env::args()
@@ -104,6 +104,9 @@ fn main() {
 					print_event(&world, ev);
 				}
 			}
+			(Some("scan"), _) => {
+				print_scan(&world);
+			}
 
 			(Some("help" | "?"), _) => print_usage(),
 
@@ -137,6 +140,7 @@ fn print_usage() {
 		("list", "every module aboard"),
 		("inspect <LABEL>", "meta: maker, part, serial, made"),
 		("status <LABEL>", "power state, draw, actuator position"),
+		("scan", "scan the ship"),
 		("source on|off <LABEL>", "queue a source command"),
 		("condition <LABEL> <0.0-1.0>", "set a module's condition"),
 		("breaker open|close <LABEL>", "queue a breaker command"),
@@ -307,5 +311,29 @@ fn replay_history(fixture: &str, file: &str) {
 			w.log().len()
 		),
 		Err(e) => println!("  replay failed: {e:?}"),
+	}
+}
+fn print_scan(world: &World) {
+	for (id, m) in world.modules() {
+		println!(
+			"  [{:>2}] {:<8} {:<12} Status: {}",
+			id.0,
+			m.label,
+			kind_name(&m.kind),
+			match world.symptom_of(*id) {
+				Some(Symptom::Dark) => {
+					"Dark"
+				}
+				Some(Symptom::Nominal) => {
+					"Nominal"
+				}
+				Some(Symptom::Starved) => {
+					"Starved"
+				}
+				None => {
+					"N/A"
+				}
+			}
+		);
 	}
 }

@@ -7,7 +7,7 @@
 
 mod common;
 use common::{TESTUDO, TESTUDO_2155, degrade, id, load, power_up};
-use sim::{Command, EventKind, ModuleId, World, replay, tick};
+use sim::{Command, EventKind, ModuleId, Symptom, World, replay, tick};
 
 /// Degrade something, then bring her up, in one batch. Commands settle in
 /// order, so the fault is already in place when the ship energises.
@@ -251,4 +251,119 @@ fn seeding_a_ghost_is_history_not_an_error() {
 		events[0].kind
 	);
 	assert_eq!(events[0].cause, None, "rejections are paracausal");
+}
+
+// ---- scan: the instrument -------------------------------------------------
+//
+// A symptom is observable AT the module reported. It never names another
+// module, a rating, a condition, or a cause. These tests pin that, and pin
+// the threshold that decides what "close to the limit" means — because a
+// threshold set slightly wrong makes a healthy ship report sick, and every
+// other scan assertion would still pass.
+
+/// Every module that has an opinion about electricity, and what it reports.
+fn symptoms(world: &World) -> Vec<(String, Symptom)> {
+	world
+		.modules()
+		.iter()
+		.filter_map(|(id, meta)| Some((meta.label.clone(), world.symptom_of(*id)?)))
+		.collect()
+}
+
+#[test]
+fn a_healthy_ship_reports_nothing() {
+	// 29A of ship against a 40A bus is 72.5% — under the 80% threshold, so a
+	// sound testudo reads all-nominal. That margin is what this test pins: drop
+	// the threshold to 70% and a working ship starts crying wolf, while every
+	// other scan test below would still pass.
+	let mut w = load(TESTUDO);
+
+	for (label, symptom) in symptoms(&w) {
+		assert_eq!(symptom, Symptom::Dark, "{label} before power-up");
+	}
+
+	let script = power_up(&w);
+	let _ = tick(&mut w, &script);
+
+	for (label, symptom) in symptoms(&w) {
+		assert_eq!(symptom, Symptom::Nominal, "{label} on a sound ship");
+	}
+}
+
+#[test]
+fn valves_have_no_opinion_about_electricity() {
+	// None is not a symptom. A valve is aboard and observable, just not on this
+	// net — it gets one in phase 6 and scan will report it then.
+	let w = load(TESTUDO);
+	for label in ["V-01", "V-02"] {
+		assert_eq!(w.symptom_of(id(&w, label)), None, "{label}");
+	}
+	assert!(
+		w.symptom_of(id(&w, "LT-01")).is_some(),
+		"a lamp is on the power net"
+	);
+}
+
+#[test]
+fn a_sagging_bus_starves_what_it_feeds() {
+	// PWR-02 at 0.6 carries 40 × (0.6/0.7) = 34A effective against 29A of ship:
+	// 85%, over the threshold, under the limit. Nothing faults, nothing trips,
+	// the log stays quiet — and ten modules report trouble.
+	let mut w = load(TESTUDO);
+	let script = degrade_then_power_up(&w, "PWR-02", 0.6);
+	let events = tick(&mut w, &script);
+
+	assert!(
+		!events.iter().any(|e| matches!(
+			e.kind,
+			EventKind::CapacityExceeded { .. } | EventKind::BreakerTripped { .. }
+		)),
+		"sagging is not failing: the ship still runs. {events:#?}"
+	);
+
+	// the culprit reports nothing wrong. it is not BEING starved — it is the
+	// one struggling to supply, and the instrument points away from it.
+	assert_eq!(w.symptom_of(id(&w, "PWR-02")), Some(Symptom::Nominal));
+	assert_eq!(w.symptom_of(id(&w, "PWR-01")), Some(Symptom::Nominal));
+
+	// everything it feeds, across BOTH breakers — the intersection is the clue
+	for label in [
+		"BRK-01", "BRK-02", "LSS-01", "HTR-01", "PMP-01", "SNS-01", "LT-01", "LT-02", "NAV-01",
+		"DCK-01",
+	] {
+		assert_eq!(
+			w.symptom_of(id(&w, label)),
+			Some(Symptom::Starved),
+			"{label} is fed by the sagging bus"
+		);
+	}
+}
+
+#[test]
+fn dark_beats_starved() {
+	// Reaching this needs care: after a breaker opens, the load usually drops
+	// too far for any bus that survived the full load to still be sagging. So
+	// bring her up with BRK-01 already open — the bus only ever sees BRK-02's
+	// 6A, and at condition 0.12 its effective limit is 6A. Sagging, not
+	// faulting, while half the ship was never energised at all.
+	let mut w = load(TESTUDO);
+	let script = vec![
+		degrade(&w, "PWR-02", 0.12),
+		Command::SetBreaker {
+			id: id(&w, "BRK-01"),
+			closed: false,
+		},
+		Command::SetSource {
+			id: id(&w, "PWR-01"),
+			online: true,
+		},
+	];
+	let _ = tick(&mut w, &script);
+
+	// LT-01 is downstream of the sagging bus AND unpowered. Dark wins: asking
+	// about supply quality at something with no supply is nonsense.
+	assert_eq!(w.symptom_of(id(&w, "LT-01")), Some(Symptom::Dark));
+	// its sibling on the live breaker reports the sag, proving the bus really
+	// is in the sagging set and LT-01 was not merely missed
+	assert_eq!(w.symptom_of(id(&w, "LT-02")), Some(Symptom::Starved));
 }
