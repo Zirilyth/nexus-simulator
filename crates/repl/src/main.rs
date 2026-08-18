@@ -41,14 +41,7 @@ fn main() {
 
 			(Some("list"), _) => {
 				for (id, m) in world.modules() {
-					let cond = world.condition_of(*id);
-					println!(
-						"  [{:>2}] {:<8} {:<12} cond {:.2?}",
-						id.0,
-						m.label,
-						kind_name(&m.kind),
-						cond
-					);
+					println!("  [{:>2}] {:<8} {:<12}", id.0, m.label, kind_name(&m.kind));
 				}
 			}
 
