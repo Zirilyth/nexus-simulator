@@ -515,6 +515,52 @@
     <p>No thermal, no fluid (consumers stay two-state until phase 6). No automatic degradation, no wear, no owner bot — condition moves only when commanded; decay is phase 5's landlord. No transcendentals, no <code>powf</code>, no accumulating floats: one multiply, one truncation, back to integers. No polling — and now no RNG either, so nothing in this phase can produce two different answers from the same state. No scan colours or polish beyond function. No new module kinds; ten done properly beats two hundred done shallowly. Done = seven tests green, one honest playtest written up, and a decision-log line for anything this sheet didn't foresee. <span class="note">float comparisons want <code>&gt; 0.0</code> not <code>== 0.0</code> — float_cmp is pedantic and CI denies warnings. the cast allows on the derating function are signed off: truncation to whole amps IS the intent.</span></p>
   </div>
 </section>
+<section id="phase45plan" style="--sys-colour: var(--teal)">
+  <div class="sys"><span class="path">sys://phase4.5</span> the build sheet — scale. the bet changes shape</div>
+  <h2>phase 4.5: the universe learns to skip</h2>
+  <p>Goal state: <em>a fleet of a thousand hulls, advanced a decade in one call, costing only what actually happened — and "give me the state at tick T" answered without stepping to it.</em> Gate one asked whether chasing a fault in a terminal is fun, and passed on a fourteen-module ship. This phase asks the other question: <b>does the architecture survive 10⁶ objects</b>. It is the bet that would hurt most to discover late, and every phase 5 line written before it would assume a single hull.</p>
+
+  <div class="rule-card">
+    <span class="tag">measured, not guessed — 2026-08-15</span>
+    <p>Synthetic hulls at 952 / 10,002 / 50,002 modules, release build. <b>One settle: 2ms / 22ms / 119ms</b> — linear in N, ~2.4µs per module. <b>An idle tick: 36ns at 1k, 163ns at 50k</b> — near-flat, growing only with cache pressure. <span class="note">extrapolated to 10⁶ modules in one World, a single settle is 2.4 SECONDS. every command, every trip, every depletion. that is the wall, and it is not the tick loop.</span></p>
+  </div>
+
+  <h3>the diagnosis</h3>
+  <div class="rule-card">
+    <span class="tag">World is one ship, and nothing is smaller than everything</span>
+    <p><code>settle_power</code> re-derives the entire world on every event. At 500 modules that is 1.2ms and fine; at 10⁶ it is fatal. <b>But settle does not need scoping internally</b> — the doc already said it: <em>"ships have fixpoints, the universe has a queue"</em>, and <em>"world = region of simultaneity; universe = event queue over analytic orbits."</em> <code>World</code> is already correctly named. What is missing is the layer above it. <span class="note">no rename, no restructuring of settle_power. a layer is added, not a system rebuilt.</span></p>
+  </div>
+
+  <h3>step 1 — expose the next event time</h3>
+  <div class="rule-card">
+    <span class="tag">it is already computed; nothing can see it</span>
+    <p><code>World::next_event_at() -&gt; Option&lt;u64&gt;</code> — the minimum of every source's <code>depletion_tick</code> and anything in <code>pending_trips</code>. A pure query, no new state, no behaviour change. <b>Writing it first forces the audit</b>: every scheduled thing in the sim must be discoverable from one place, which is the precondition for a queue. If something is scheduled and cannot be seen here, it is a poll in disguise.</p>
+  </div>
+
+  <h3>step 2 — delete the poll</h3>
+  <div class="rule-card">
+    <span class="tag">the change that makes "state at T" real</span>
+    <p><code>advance_to(world, t, commands)</code>: process everything due at or before <code>t</code>, then set <code>world.tick = t</code>. <code>tick()</code> becomes a thin wrapper for <code>advance_to(tick + 1)</code>. A quiet century costs the same as a quiet second. <b>Protected by the canary, generalised:</b> the same script advanced tick-by-tick and in single jumps must produce byte-identical logs — <code>anchors_dont_drift</code> applied to the whole sim rather than to charge alone. <span class="note">one design consequence: commands arrive AT a time now. the deck's `tick n` becomes `advance n`, and batches carry timestamps. this is the step with the most risk and the strongest safety net.</span></p>
+  </div>
+
+  <h3>step 3 — the universe above the world</h3>
+  <div class="rule-card">
+    <span class="tag">a fleet where nothing happens costs one comparison</span>
+    <p><code>Universe { worlds: BTreeMap&lt;ShipId, World&gt; }</code>, with <code>advance_to(t)</code> popping the world whose <code>next_event_at</code> is earliest, advancing it, and rescheduling. <b>Undocked hulls share nothing</b>, so cross-world events are zero until docking exists — which is exactly the lookahead that licenses parallelism later (Chandy–Misra: speedup ≈ 1/(s + (1−s)/k), where s is the fraction of events crossing hulls). <span class="note">canary across two ships: same scripts, interleaved advancing versus sequential, identical logs per ship.</span></p>
+  </div>
+
+  <h3>step 4 — measure at 10⁶</h3>
+  <div class="rule-card">
+    <span class="tag">2000 hulls × 500 modules</span>
+    <p>Numbers wanted: resident memory, one settle, and events/sec under a synthetic owner-bot load. <b>Do the string interning first or the measurement lies.</b> <code>ModuleMeta</code> holds four <code>String</code>s — maker, part, serial, label — ≈200 bytes each module, and <code>maker: "Vostok"</code> is identical across hundreds of thousands of them. Interned to a catalogue id that is ~16 bytes. <span class="note">serials stay strings: genuinely unique, genuinely needed. measure with them in, or the 10⁶ number describes the allocator rather than the architecture.</span></p>
+  </div>
+
+  <h3>rails</h3>
+  <div class="rule-card">
+    <span class="tag">do not — phase 4.5 edition</span>
+    <p>No geometry. No positions, no KDS, no frontend — those need the app era and there is nothing to index yet. No parallelism: partition first, prove the logs identical, and only then reach for rayon. No real event-queue optimisation — a BTreeMap keyed by time is correct; the calendar queue's O(1) is a 20× on a hot path that does not exist yet. No owner bot, no history: phase 5 waits, and is better for it, because a bot that can drive a fleet is more interesting than one driving a hull. <b>Done</b> = next_event_at exposed, the poll deleted, the jump-vs-step canary green, a Universe holding many worlds, and a measured number at 10⁶ written into this sheet.</p>
+  </div>
+</section>
 <section id="vocab" style="--sys-colour: var(--pink)">
   <div class="sys"><span class="path">sys://vocabulary</span> events &amp; verbs</div>
   <h2>the event vocabulary</h2>
