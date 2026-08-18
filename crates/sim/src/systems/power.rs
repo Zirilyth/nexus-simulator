@@ -1,6 +1,8 @@
+use crate::types::catalogue::Part;
 use crate::types::events::{EventId, EventKind};
 use crate::types::ids::NetworkKind;
-use crate::types::modules::{ModuleId, ModuleKind};
+use crate::types::modules::ModuleId;
+use crate::types::role::PowerRole;
 use crate::types::world::World;
 use crate::{Condition, ModuleMeta};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -194,7 +196,7 @@ fn schedule_overloads(
 		.iter()
 		.filter(|(id, b)| b.closed && reached.contains(id))
 		.filter_map(|(id, _)| -> Option<OverloadFault> {
-			let ModuleKind::Breaker { rating_a } = world.modules[id].kind else {
+			let Some(PowerRole::Gate { rating_a }) = world.power_role(*id) else {
 				return None;
 			};
 			let condition = world.condition[id];
@@ -258,9 +260,10 @@ fn schedule_supply_faults(
 		.modules()
 		.iter()
 		.filter(|(id, _)| reached.contains(id))
-		.filter_map(|(id, meta)| -> Option<SupplyFault> {
+		.filter_map(|(id, _)| -> Option<SupplyFault> {
 			let (load_a, downstream) = downstream_load(world, adj, *id);
-			let supply_limit_a = supply_limit(meta)?;
+			let supply_limit_a = world.power_role(*id)?.supply_limit_a()?;
+			// let supply_limit_a = supply_limit(meta)?;
 			let condition = world.condition[id];
 			let degraded_limit_a = degraded_rating(supply_limit_a, condition);
 			if load_a <= degraded_limit_a {
@@ -355,7 +358,11 @@ fn downstream_load(world: &World, adj: &Adjacency, from: ModuleId) -> (u32, BTre
 			}
 
 			if world.power.states.get(&next).is_some_and(|s| s.energised) {
-				total += effective_draw(world.modules[&next].draw_a, true, world.condition[&next]);
+				total += effective_draw(
+					world.power_role(next).map_or(0, PowerRole::draw_a),
+					true,
+					world.condition[&next],
+				);
 			}
 			queue.push_back(next);
 		}
@@ -374,11 +381,18 @@ fn effective_draw(draw_a: u32, energised: bool, condition: Condition) -> u32 {
 impl PowerNet {
 	/// Every module gets its power rows by kind. Exhaustive — a new kind
 	/// must state its relationship to electricity before this compiles.
-	pub(crate) fn from_modules(modules: &BTreeMap<ModuleId, ModuleMeta>) -> Self {
+	pub(crate) fn from_modules(parts: &[Part], modules: &BTreeMap<ModuleId, ModuleMeta>) -> Self {
 		let mut net = PowerNet::default();
 		for (id, meta) in modules {
-			match meta.kind {
-				ModuleKind::BatteryBank { capacity, .. } => {
+			match parts[meta.part.0 as usize].power {
+				Some(PowerRole::Gate { .. }) => {
+					net.breakers.insert(*id, BreakerState { closed: true });
+					net.states.insert(*id, PowerState { energised: false });
+				}
+				Some(PowerRole::Conduit { .. } | PowerRole::Load { .. }) => {
+					net.states.insert(*id, PowerState { energised: false });
+				}
+				Some(PowerRole::Source { capacity, .. }) => {
 					net.sources.insert(
 						*id,
 						SourceState {
@@ -392,38 +406,11 @@ impl PowerNet {
 					);
 					net.states.insert(*id, PowerState { energised: false });
 				}
-				ModuleKind::Breaker { .. } => {
-					net.breakers.insert(*id, BreakerState { closed: true });
-					net.states.insert(*id, PowerState { energised: false });
-				}
-				ModuleKind::Bus { .. }
-				| ModuleKind::Scrubber
-				| ModuleKind::Heater
-				| ModuleKind::Pump
-				| ModuleKind::Sensor
-				| ModuleKind::Lights
-				| ModuleKind::Console => {
-					net.states.insert(*id, PowerState { energised: false });
-				}
-				ModuleKind::Valve { .. } => {}
+				//Not part of this network
+				None => {}
 			}
 		}
 		net
-	}
-}
-fn supply_limit(meta: &ModuleMeta) -> Option<u32> {
-	match meta.kind {
-		ModuleKind::Bus { max_a } => Some(max_a),
-		ModuleKind::BatteryBank { max_draw_a, .. } => Some(max_draw_a),
-
-		ModuleKind::Breaker { .. }
-		| ModuleKind::Scrubber
-		| ModuleKind::Heater
-		| ModuleKind::Pump
-		| ModuleKind::Sensor
-		| ModuleKind::Lights
-		| ModuleKind::Console
-		| ModuleKind::Valve { .. } => None,
 	}
 }
 
@@ -448,9 +435,10 @@ pub(crate) fn sagging_suppliers(world: &World) -> BTreeSet<ModuleId> {
 	let adj = power_adjacency(world);
 	world
 		.modules
-		.iter()
-		.filter_map(|(id, meta)| -> Option<BTreeSet<ModuleId>> {
-			let limit = supply_limit(meta)?;
+		.keys()
+		.filter_map(|id| {
+			let limit = world.power_role(*id)?.supply_limit_a()?;
+			// let limit = supply_limit(meta)?;
 			let (load, seen) = downstream_load(world, &adj, *id);
 
 			let degraded_limit = degraded_rating(limit, world.condition[id]);

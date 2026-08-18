@@ -1,5 +1,5 @@
 #![allow(clippy::print_stdout, clippy::print_stderr)]
-use sim::{Command, Condition, Event, EventKind, ModuleId, ModuleKind, Symptom, World, tick};
+use sim::{Command, Condition, Event, EventKind, ModuleId, PowerRole, Symptom, World, tick};
 use std::io::{self, BufRead, Write};
 fn main() {
 	let path = std::env::args()
@@ -41,16 +41,21 @@ fn main() {
 
 			(Some("list"), _) => {
 				for (id, m) in world.modules() {
-					println!("  [{:>2}] {:<8} {:<12}", id.0, m.label, kind_name(&m.kind));
+					let part = world.part(*id);
+					println!("  [{:>2}] {:<8} {:<12}", id.0, m.label, part.name);
 				}
 			}
 
 			(Some("inspect"), Some(label)) => {
 				match world.modules().iter().find(|(_, m)| m.label == label) {
 					Some((id, m)) => {
+						let part = world.part(*id);
 						let cond = world.condition_of(*id).map(Condition::get);
-						println!("  {} — {}", m.label, kind_name(&m.kind));
-						println!("  maker  {:<10} part {}", m.maker, m.part);
+						println!("  {} — {}", m.label, part.name);
+						println!(
+							"  maker  {:<10} part {}",
+							part.manufacturer, part.manufacturer_part_number
+						);
 						println!("  serial {}", m.serial);
 						println!("  made   {:.2}    condition {:.2?}", m.made, cond);
 					}
@@ -112,20 +117,6 @@ fn main() {
 	}
 }
 
-fn kind_name(k: &ModuleKind) -> &'static str {
-	match k {
-		ModuleKind::BatteryBank { .. } => "battery",
-		ModuleKind::Bus { .. } => "bus",
-		ModuleKind::Breaker { .. } => "breaker",
-		ModuleKind::Scrubber => "scrubber",
-		ModuleKind::Heater => "heater",
-		ModuleKind::Pump => "pump",
-		ModuleKind::Sensor => "sensor",
-		ModuleKind::Lights => "lights",
-		ModuleKind::Console => "console",
-		ModuleKind::Valve { .. } => "valve",
-	}
-}
 /// The deck's grammar. Grows a line per phase; keep it the only place the
 /// verbs are spelled out, so it cannot drift from what the parser accepts.
 fn print_usage() {
@@ -154,7 +145,8 @@ fn print_status(world: &World, label: &str) {
 		return;
 	};
 	let m = &world.modules()[&id];
-	println!("  {} — {}", m.label, kind_name(&m.kind));
+	let part = world.part(id);
+	println!("  {} — {}", m.label, part.name);
 	println!(
 		"  power   {:<10} draw {}A",
 		match world.is_energised(id) {
@@ -162,7 +154,7 @@ fn print_status(world: &World, label: &str) {
 			Some(false) => "dark",
 			None => "n/a",
 		},
-		m.draw_a
+		part.power.map_or(0, PowerRole::draw_a)
 	);
 	if let Some(closed) = world.breaker_closed(id) {
 		println!("  breaker {}", if closed { "closed" } else { "OPEN" });
@@ -312,7 +304,7 @@ fn print_scan(world: &World) {
 			"  [{:>2}] {:<8} {:<12} Status: {}",
 			id.0,
 			m.label,
-			kind_name(&m.kind),
+			world.part(*id).name,
 			match world.symptom_of(*id) {
 				Some(Symptom::Dark) => {
 					"Dark"

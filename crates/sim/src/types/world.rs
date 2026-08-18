@@ -1,9 +1,11 @@
 use crate::systems::power::{PowerNet, sagging_suppliers};
+use crate::types::catalogue::Part;
 use crate::types::condition::Condition;
 use crate::types::events::Event;
 use crate::types::fixture::{ResolvedShip, ShipFixture};
 use crate::types::ids::NetworkKind;
 use crate::types::modules::{ModuleId, ModuleMeta, PortName};
+use crate::types::role::PowerRole;
 use crate::types::symptom::Symptom;
 use crate::{EventId, EventKind};
 use rand_chacha::ChaCha8Rng;
@@ -28,6 +30,7 @@ pub struct World {
 	pub(crate) as_built: Vec<Connection>,
 	pub(crate) power: PowerNet,
 	pub(crate) log: Vec<Event>,
+	pub(crate) parts: Vec<Part>,
 }
 
 #[derive(Debug)]
@@ -35,6 +38,7 @@ pub enum LoadError {
 	Io(std::io::Error),
 	Parse(ron::error::SpannedError),
 	UnknownLabel(String),
+	UnknownPart(String),
 }
 
 impl World {
@@ -91,6 +95,7 @@ impl World {
 			as_built: Vec::new(),
 			power: PowerNet::default(),
 			log: Vec::new(),
+			parts: Vec::new(),
 		}
 	}
 	#[must_use]
@@ -147,6 +152,15 @@ impl World {
 	pub fn charge_of(&self, id: ModuleId) -> Option<u64> {
 		self.power.sources.get(&id).map(|s| s.charge_at(self.tick))
 	}
+	#[must_use]
+	pub fn part(&self, id: ModuleId) -> &Part {
+		let part_id = self.modules[&id].part;
+		&self.parts[part_id.0 as usize]
+	}
+	#[must_use]
+	pub fn power_role(&self, id: ModuleId) -> Option<PowerRole> {
+		self.part(id).power
+	}
 }
 
 #[test]
@@ -161,9 +175,9 @@ fn testudo_comes_aboard() {
 	assert_eq!(w.connections.len(), 14);
 	assert_eq!(w.as_built, w.connections); // true today. wait a decade.
 
-	let brk = w.modules.values().find(|m| m.label == "BRK-01").unwrap();
+	let brk = w.find_label("BRK-01").expect("BRK-01 is aboard");
 	assert!(matches!(
-		brk.kind,
-		crate::ModuleKind::Breaker { rating_a: 25 }
+		w.power_role(brk),
+		Some(PowerRole::Gate { rating_a: 25 })
 	));
 }

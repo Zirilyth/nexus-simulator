@@ -3,10 +3,12 @@ pub(crate) mod types;
 use crate::systems::commands::apply_commands;
 use crate::systems::power::{tick_depletion, tick_power};
 pub use crate::types::world::{Connection, LoadError, World};
+pub use types::catalogue::Part;
 pub use types::condition::Condition;
 pub use types::events::{Command, Event, EventId, EventKind, RejectReason};
 pub use types::ids::NetworkKind;
-pub use types::modules::{ModuleId, ModuleKind, ModuleMeta, PortName};
+pub use types::modules::{ModuleId, ModuleMeta, PortName};
+pub use types::role::PowerRole;
 pub use types::symptom::Symptom;
 #[must_use = "events are history. drop them deliberately or not at all"]
 pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
