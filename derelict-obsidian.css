@@ -1,0 +1,379 @@
+/* ============================================================
+   derelict.css — the deck, for Obsidian
+   ------------------------------------------------------------
+   Renders plain markdown in the visual language of derelict.html.
+
+   Install: copy to <vault>/.obsidian/snippets/derelict.css, then
+   Settings → Appearance → CSS snippets → enable "derelict".
+   Works best on a dark theme; it sets its own background.
+
+   Fonts: Monaspace (Neon/Xenon/Radon/Krypton) and IBM Plex Sans.
+   Every family falls back gracefully if they aren't installed —
+   Monaspace is worth having: github.com/githubnext/monaspace
+   ============================================================ */
+
+.theme-dark {
+  --void: #0a0a0f;
+  --panel: #101018;
+  --panel-2: #14141f;
+  --line: #23233a;
+  --ink: #c3c7d4;
+  --ink-dim: #7d8296;
+  --pink: #ff2e88;
+  --teal: #00e5cc;
+  --acid: #aaff00;
+
+  --d-mono: 'Monaspace Neon NF', 'Monaspace Neon', ui-monospace, monospace;
+  --d-display: 'Monaspace Xenon NF', 'Monaspace Xenon', 'Monaspace Neon NF', monospace;
+  --d-hand: 'Monaspace Radon NF', 'Monaspace Radon', 'Monaspace Neon NF', monospace;
+  --d-machine: 'Monaspace Krypton NF', 'Monaspace Krypton', 'Monaspace Neon NF', monospace;
+  --d-body: 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* hand these to Obsidian's own variables so chrome matches */
+  --background-primary: var(--void);
+  --background-primary-alt: var(--panel);
+  --background-secondary: var(--panel);
+  --background-secondary-alt: var(--panel-2);
+  --background-modifier-border: var(--line);
+  --text-normal: var(--ink);
+  --text-muted: var(--ink-dim);
+  --text-faint: var(--ink-dim);
+  --text-accent: var(--teal);
+  --text-accent-hover: var(--acid);
+  --text-selection: rgba(255, 46, 136, 0.35);
+  --interactive-accent: var(--pink);
+  --font-text: var(--d-body);
+  --font-monospace: var(--d-mono);
+}
+
+/* ---------- page ---------- */
+
+.theme-dark .markdown-rendered,
+.theme-dark .markdown-source-view.mod-cm6 .cm-content {
+  font-family: var(--d-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.theme-dark .markdown-rendered p,
+.theme-dark .markdown-rendered ul,
+.theme-dark .markdown-rendered ol {
+  max-width: 72ch;
+}
+
+.theme-dark .markdown-rendered p {
+  margin-bottom: 12px;
+}
+
+.theme-dark .markdown-rendered strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* italics read as the doc's quiet emphasis, not as stress */
+.theme-dark .markdown-rendered em {
+  color: var(--teal);
+  font-style: normal;
+}
+
+.theme-dark .markdown-rendered a,
+.theme-dark .markdown-rendered .internal-link {
+  color: var(--teal);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0, 229, 204, 0.3);
+}
+
+.theme-dark .markdown-rendered hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 32px 0;
+}
+
+/* ---------- headings ---------- */
+
+.theme-dark .markdown-rendered h1,
+.theme-dark .markdown-rendered h2,
+.theme-dark .markdown-rendered h3,
+.theme-dark .markdown-rendered h4 {
+  font-family: var(--d-display);
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: -0.01em;
+}
+
+.theme-dark .markdown-rendered h1 {
+  font-size: 2.2rem;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 8px 0 16px;
+}
+
+.theme-dark .markdown-rendered h2 {
+  font-size: 1.35rem;
+  color: #fff;
+  margin: 40px 0 14px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.theme-dark .markdown-rendered h3 {
+  font-size: 1rem;
+  color: var(--teal);
+  margin: 22px 0 8px;
+}
+
+.theme-dark .markdown-rendered h4 {
+  font-size: 0.95rem;
+  color: var(--pink);
+  margin: 18px 0 6px;
+}
+
+/* h5 is the accent bullet: a coloured square, like the sys:// line */
+.theme-dark .markdown-rendered h5 {
+  font-family: var(--d-machine);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--teal);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 10px;
+}
+
+.theme-dark .markdown-rendered h5::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal);
+}
+
+/* h6 is the machine-voice label — sys://path, deck.link, that register */
+.theme-dark .markdown-rendered h6 {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 24px 0 8px;
+}
+
+/* ---------- lists ---------- */
+
+.theme-dark .markdown-rendered li {
+  margin-bottom: 8px;
+}
+
+.theme-dark .markdown-rendered li::marker {
+  color: var(--pink);
+}
+
+/* task lists: the acid tick from the phase checklists */
+.theme-dark .markdown-rendered .task-list-item-checkbox {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--panel-2);
+  position: relative;
+  cursor: pointer;
+  margin-inline-end: 8px;
+}
+
+.theme-dark .markdown-rendered .task-list-item-checkbox:hover {
+  border-color: var(--teal);
+}
+
+.theme-dark .markdown-rendered .task-list-item-checkbox:checked {
+  border-color: var(--acid);
+  background: rgba(170, 255, 0, 0.08);
+}
+
+.theme-dark .markdown-rendered .task-list-item-checkbox:checked::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--acid);
+  font-family: var(--d-mono);
+  font-size: 13px;
+}
+
+.theme-dark .markdown-rendered li[data-task="x"],
+.theme-dark .markdown-rendered li[data-task="X"] {
+  color: var(--ink-dim);
+  text-decoration: line-through;
+  text-decoration-color: rgba(125, 130, 150, 0.5);
+}
+
+/* ---------- code ---------- */
+
+.theme-dark .markdown-rendered code {
+  font-family: var(--d-mono);
+  font-size: 0.85em;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  border-radius: 2px;
+  color: var(--teal);
+}
+
+.theme-dark .markdown-rendered pre {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--pink);
+  border-radius: 3px;
+  padding: 16px 18px;
+  margin: 14px 0 18px;
+  overflow-x: auto;
+}
+
+.theme-dark .markdown-rendered pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
+  font-feature-settings: 'calt' 1, 'ss01' 1, 'ss02' 1, 'ss03' 1, 'ss04' 1;
+}
+
+/* ---------- blockquote = rule-card ---------- */
+
+.theme-dark .markdown-rendered blockquote {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  color: var(--ink);
+  font-style: normal;
+}
+
+.theme-dark .markdown-rendered blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- callouts ---------- */
+/* the title line becomes the card's .tag — uppercase, acid, machine */
+
+.theme-dark .markdown-rendered .callout {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 14px 20px;
+  margin: 16px 0;
+  mix-blend-mode: normal;
+}
+
+.theme-dark .markdown-rendered .callout-title {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--acid);
+  padding: 0 0 6px;
+  gap: 8px;
+}
+
+.theme-dark .markdown-rendered .callout-title-inner {
+  color: var(--acid);
+  font-weight: 500;
+}
+
+.theme-dark .markdown-rendered .callout-icon {
+  color: var(--acid);
+}
+
+.theme-dark .markdown-rendered .callout-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* [!warning] / [!danger] — the gate cards */
+.theme-dark .markdown-rendered .callout[data-callout="warning"],
+.theme-dark .markdown-rendered .callout[data-callout="danger"],
+.theme-dark .markdown-rendered .callout[data-callout="gate"] {
+  background: rgba(170, 255, 0, 0.04);
+  border-color: rgba(170, 255, 0, 0.25);
+}
+
+/* [!law] / [!quote] — pink-edged, for the non-negotiables */
+.theme-dark .markdown-rendered .callout[data-callout="law"],
+.theme-dark .markdown-rendered .callout[data-callout="quote"] {
+  border-left: 2px solid var(--pink);
+}
+
+.theme-dark .markdown-rendered .callout[data-callout="law"] .callout-title,
+.theme-dark .markdown-rendered .callout[data-callout="law"] .callout-title-inner,
+.theme-dark .markdown-rendered .callout[data-callout="law"] .callout-icon {
+  color: var(--pink);
+}
+
+/* [!note] — the aside voice: pink, handwritten */
+.theme-dark .markdown-rendered .callout[data-callout="note"] .callout-content {
+  font-family: var(--d-hand);
+  color: var(--pink);
+}
+
+/* ---------- tables ---------- */
+
+.theme-dark .markdown-rendered table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0 18px;
+  font-size: 0.92rem;
+}
+
+.theme-dark .markdown-rendered th {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+}
+
+.theme-dark .markdown-rendered td {
+  padding: 9px 12px 9px 0;
+  border-bottom: 1px solid rgba(35, 35, 58, 0.5);
+  vertical-align: top;
+  border-left: none;
+  border-right: none;
+}
+
+/* first column is the key — mono and teal, as in the vocabulary tables */
+.theme-dark .markdown-rendered td:first-child {
+  font-family: var(--d-mono);
+  font-size: 0.85rem;
+  color: var(--teal);
+  white-space: nowrap;
+}
+
+/* ---------- highlight = the pink margin note ---------- */
+
+.theme-dark .markdown-rendered mark {
+  background: none;
+  font-family: var(--d-hand);
+  color: var(--pink);
+}
+
+/* ---------- selection ---------- */
+
+.theme-dark ::selection {
+  background: var(--pink);
+  color: var(--void);
+}

@@ -41,21 +41,28 @@ pub struct PowerNet {
 	pub(crate) states: BTreeMap<ModuleId, PowerState>,
 	pub(crate) breakers: BTreeMap<ModuleId, BreakerState>,
 	pub(crate) sources: BTreeMap<ModuleId, SourceState>,
-	pub(crate) pending_trips: BTreeMap<ModuleId, EventId>,
+	pub(crate) pending_trips: BTreeMap<ModuleId, (u64, EventId)>,
 }
 
 /// Trips scheduled last tick fire now. A thermal breaker is not instantaneous.
 pub(crate) fn tick_power(world: &mut World) {
-	let pending = std::mem::take(&mut world.power.pending_trips);
-	for (id, trip_event) in pending {
+	let due: Vec<ModuleId> = world
+		.power
+		.pending_trips
+		.iter()
+		.filter(|(_, (at, _))| *at <= world.tick)
+		.map(|(id, _)| *id)
+		.collect();
+
+	for id in due {
+		let Some((_, cause)) = world.power.pending_trips.remove(&id) else {
+			continue;
+		};
 		let Some(b) = world.power.breakers.get_mut(&id) else {
 			continue;
 		};
 		b.closed = false;
-		let ev = world.emit(
-			EventKind::BreakerSet { id, closed: false },
-			Some(trip_event),
-		);
+		let ev = world.emit(EventKind::BreakerSet { id, closed: false }, Some(cause));
 		settle_power(world, Some(ev));
 	}
 }
@@ -236,7 +243,11 @@ fn schedule_overloads(
 			fault.blame,
 		);
 
-		world.power.pending_trips.entry(fault.id).or_insert(ev);
+		world
+			.power
+			.pending_trips
+			.entry(fault.id)
+			.or_insert((world.tick + 1, ev));
 	}
 }
 
@@ -306,7 +317,11 @@ fn schedule_supply_faults(
 			fault.blame,
 		);
 		for victim in fault.victims {
-			world.power.pending_trips.entry(victim).or_insert(ev);
+			world
+				.power
+				.pending_trips
+				.entry(victim)
+				.or_insert((world.tick + 1, ev));
 		}
 	}
 }
@@ -449,4 +464,11 @@ pub(crate) fn sagging_suppliers(world: &World) -> BTreeSet<ModuleId> {
 		})
 		.flatten()
 		.collect()
+}
+pub(crate) fn next_event_at(net: &PowerNet) -> Option<u64> {
+	net.sources
+		.values()
+		.filter_map(|s| s.depletion_tick)
+		.chain(net.pending_trips.values().map(|(at, _)| *at))
+		.min()
 }

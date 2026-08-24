@@ -1,0 +1,945 @@
+/* ============================================================
+   Derelict
+   ------------------------------------------------------------
+   A terminal-deck theme: void black, pink/teal/acid accents,
+   Monaspace for every machine voice and IBM Plex Sans for prose.
+
+   Dark is the design. Light is a legible translation of it —
+   same hues, darkened for contrast on paper.
+
+   Fonts (all optional, all fall back):
+     Monaspace Neon NF     code, inline literals
+     Monaspace Xenon NF    display — headings
+     Monaspace Krypton NF  machine voice — labels, tags, tables
+     Monaspace Radon NF    the handwritten aside
+     IBM Plex Sans         body
+   ============================================================ */
+
+.theme-dark {
+  --d-void: #0a0a0f;
+  --d-panel: #101018;
+  --d-panel-2: #14141f;
+  --d-line: #23233a;
+  --d-ink: #c3c7d4;
+  --d-ink-dim: #7d8296;
+  --d-pink: #ff2e88;
+  --d-teal: #00e5cc;
+  --d-acid: #aaff00;
+  --d-white: #ffffff;
+  --d-tint-acid: rgba(170, 255, 0, 0.04);
+  --d-tint-acid-line: rgba(170, 255, 0, 0.25);
+  --d-row-line: rgba(35, 35, 58, 0.5);
+}
+
+.theme-light {
+  --d-void: #f7f7f4;
+  --d-panel: #ffffff;
+  --d-panel-2: #f0f0ec;
+  --d-line: #d8d8d0;
+  --d-ink: #2a2a33;
+  --d-ink-dim: #6b6b78;
+  --d-pink: #c4005f;
+  --d-teal: #00776a;
+  --d-acid: #4f7a00;
+  --d-white: #000000;
+  --d-tint-acid: rgba(79, 122, 0, 0.06);
+  --d-tint-acid-line: rgba(79, 122, 0, 0.3);
+  --d-row-line: rgba(216, 216, 208, 0.7);
+}
+
+/* ---------- fonts ---------- */
+
+body {
+  --d-mono: 'Monaspace Neon NF', 'Monaspace Neon', ui-monospace, monospace;
+  --d-display: 'Monaspace Xenon NF', 'Monaspace Xenon', 'Monaspace Neon NF', monospace;
+  --d-hand: 'Monaspace Radon NF', 'Monaspace Radon', 'Monaspace Neon NF', monospace;
+  --d-machine: 'Monaspace Krypton NF', 'Monaspace Krypton', 'Monaspace Neon NF', monospace;
+  --d-body: 'IBM Plex Sans', system-ui, sans-serif;
+
+  --font-text: var(--d-body);
+  --font-interface: var(--d-body);
+  --font-monospace: var(--d-mono);
+  --font-text-size: 16px;
+  --line-height-normal: 1.6;
+  --file-line-width: 72ch;
+}
+
+/* ---------- Obsidian's own variables: chrome follows from here ---------- */
+
+.theme-dark,
+.theme-light {
+  --background-primary: var(--d-void);
+  --background-primary-alt: var(--d-panel);
+  --background-secondary: var(--d-panel);
+  --background-secondary-alt: var(--d-panel-2);
+  --background-modifier-border: var(--d-line);
+  --background-modifier-border-hover: var(--d-teal);
+  --background-modifier-border-focus: var(--d-teal);
+  --background-modifier-hover: var(--d-panel-2);
+  --background-modifier-active-hover: var(--d-panel-2);
+  --background-modifier-form-field: var(--d-panel-2);
+  --background-modifier-error: rgba(255, 46, 136, 0.15);
+  --background-modifier-error-hover: rgba(255, 46, 136, 0.25);
+  --background-modifier-success: rgba(170, 255, 0, 0.15);
+
+  --text-normal: var(--d-ink);
+  --text-muted: var(--d-ink-dim);
+  --text-faint: var(--d-ink-dim);
+  --text-error: var(--d-pink);
+  --text-success: var(--d-acid);
+  --text-accent: var(--d-teal);
+  --text-accent-hover: var(--d-acid);
+  --text-on-accent: var(--d-void);
+  --text-selection: rgba(255, 46, 136, 0.35);
+  --text-highlight-bg: transparent;
+
+  --interactive-normal: var(--d-panel);
+  --interactive-hover: var(--d-panel-2);
+  --interactive-accent: var(--d-pink);
+  --interactive-accent-hover: var(--d-teal);
+
+  --divider-color: var(--d-line);
+  --divider-color-hover: var(--d-teal);
+
+  --titlebar-background: var(--d-void);
+  --titlebar-background-focused: var(--d-void);
+  --titlebar-text-color: var(--d-ink-dim);
+  --titlebar-border-width: 1px;
+  --titlebar-border-color: var(--d-line);
+
+  --tab-background-active: var(--d-panel);
+  --tab-text-color: var(--d-ink-dim);
+  --tab-text-color-focused-active: var(--d-teal);
+  --tab-outline-color: var(--d-line);
+
+  --scrollbar-bg: transparent;
+  --scrollbar-thumb-bg: var(--d-line);
+  --scrollbar-active-thumb-bg: var(--d-teal);
+
+  --link-color: var(--d-teal);
+  --link-color-hover: var(--d-acid);
+  --link-decoration: none;
+  --link-decoration-hover: none;
+  --link-external-color: var(--d-teal);
+
+  --code-background: var(--d-panel-2);
+  --code-normal: var(--d-teal);
+  --code-size: 0.85em;
+
+  --blockquote-border-color: var(--d-line);
+  --blockquote-color: var(--d-ink);
+
+  --hr-color: var(--d-line);
+  --hr-thickness: 1px;
+
+  --table-header-background: transparent;
+  --table-header-color: var(--d-ink-dim);
+  --table-border-color: var(--d-line);
+  --table-row-alt-background: transparent;
+  --table-row-background-hover: var(--d-panel);
+
+  --checkbox-color: var(--d-acid);
+  --checkbox-color-hover: var(--d-acid);
+  --checkbox-border-color: var(--d-line);
+  --checkbox-border-color-hover: var(--d-teal);
+  --checkbox-marker-color: var(--d-void);
+  --checklist-done-color: var(--d-ink-dim);
+  --checklist-done-decoration: line-through;
+
+  --graph-line: var(--d-line);
+  --graph-node: var(--d-ink);
+  --graph-node-focused: var(--d-acid);
+  --graph-node-tag: var(--d-pink);
+  --graph-node-attachment: var(--d-teal);
+  --graph-node-unresolved: var(--d-ink-dim);
+
+  --tag-color: var(--d-pink);
+  --tag-background: transparent;
+  --tag-background-hover: var(--d-panel-2);
+
+  --icon-color: var(--d-ink-dim);
+  --icon-color-hover: var(--d-teal);
+  --icon-color-focused: var(--d-teal);
+
+  --prompt-border-color: var(--d-line);
+  --modal-border-color: var(--d-line);
+  --input-radius: 2px;
+  --radius-s: 2px;
+  --radius-m: 3px;
+  --radius-l: 3px;
+}
+
+/* ---------- headings ---------- */
+
+.theme-dark,
+.theme-light {
+  --h1-color: var(--d-pink);
+  --h2-color: var(--d-white);
+  --h3-color: var(--d-teal);
+  --h4-color: var(--d-pink);
+  --h5-color: var(--d-teal);
+  --h6-color: var(--d-ink-dim);
+
+  --h1-font: var(--d-display);
+  --h2-font: var(--d-display);
+  --h3-font: var(--d-display);
+  --h4-font: var(--d-display);
+  --h5-font: var(--d-machine);
+  --h6-font: var(--d-machine);
+
+  --h1-size: 2.2rem;
+  --h2-size: 1.35rem;
+  --h3-size: 1rem;
+  --h4-size: 0.95rem;
+  --h5-size: 12px;
+  --h6-size: 11px;
+
+  --h1-weight: 700;
+  --h2-weight: 700;
+  --h3-weight: 700;
+  --h4-weight: 700;
+  --h5-weight: 500;
+  --h6-weight: 500;
+}
+
+.markdown-rendered h1,
+.markdown-rendered h2,
+.markdown-rendered h3,
+.markdown-rendered h4 {
+  text-transform: lowercase;
+  letter-spacing: -0.01em;
+}
+
+.markdown-rendered h1 {
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/* h2 opens a section, so it carries the rule above it */
+.markdown-rendered h2 {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--d-line);
+}
+
+/* h5 is the sys:// line — machine voice with a lit square */
+.markdown-rendered h5 {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 10px;
+}
+
+.markdown-rendered h5::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 1px;
+  background: var(--d-teal);
+  box-shadow: 0 0 8px var(--d-teal);
+}
+
+/* h6 is the quieter machine label — boot lines, footers */
+.markdown-rendered h6 {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 24px 0 8px;
+}
+
+/* ---------- prose ---------- */
+
+.markdown-rendered strong {
+  color: var(--d-white);
+  font-weight: 600;
+}
+
+/* emphasis by colour, not slant — as the deck does it */
+.markdown-rendered em {
+  color: var(--d-teal);
+  font-style: normal;
+}
+
+.markdown-rendered li::marker {
+  color: var(--d-pink);
+}
+
+.markdown-rendered a {
+  border-bottom: 1px solid rgba(0, 229, 204, 0.3);
+}
+
+/* ---------- the handwritten aside ---------- */
+
+.markdown-rendered mark {
+  background: none;
+  font-family: var(--d-hand);
+  color: var(--d-pink);
+}
+
+/* ---------- code ---------- */
+
+.markdown-rendered code {
+  border: 1px solid var(--d-line);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+
+.markdown-rendered pre {
+  background: var(--d-panel);
+  border: 1px solid var(--d-line);
+  border-left: 2px solid var(--d-pink);
+  padding: 16px 18px;
+}
+
+.markdown-rendered pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--d-ink);
+  font-size: 13px;
+  line-height: 1.6;
+  font-feature-settings: 'calt' 1, 'ss01' 1, 'ss02' 1, 'ss03' 1, 'ss04' 1;
+}
+
+/* ---------- blockquote and callouts = the rule cards ---------- */
+
+.markdown-rendered blockquote {
+  background: var(--d-panel);
+  border: 1px solid var(--d-line);
+  border-radius: 3px;
+  padding: 16px 20px;
+  font-style: normal;
+}
+
+.markdown-rendered .callout {
+  background: var(--d-panel);
+  border: 1px solid var(--d-line);
+  border-radius: 3px;
+  padding: 14px 20px;
+  mix-blend-mode: normal;
+  --callout-padding: 14px 20px;
+}
+
+/* the callout title is the card's tag: uppercase, acid, machine voice */
+.markdown-rendered .callout-title,
+.markdown-rendered .callout-title-inner,
+.markdown-rendered .callout-icon {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--d-acid);
+  padding-bottom: 6px;
+  gap: 8px;
+}
+
+.markdown-rendered .callout-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* [!warning] / [!danger] / [!gate] — the gate cards */
+.markdown-rendered .callout[data-callout="warning"],
+.markdown-rendered .callout[data-callout="danger"],
+.markdown-rendered .callout[data-callout="gate"] {
+  background: var(--d-tint-acid);
+  border-color: var(--d-tint-acid-line);
+}
+
+/* [!law] / [!quote] — pink-edged, for the non-negotiables */
+.markdown-rendered .callout[data-callout="law"],
+.markdown-rendered .callout[data-callout="quote"] {
+  border-left: 2px solid var(--d-pink);
+}
+
+.markdown-rendered .callout[data-callout="law"] .callout-title,
+.markdown-rendered .callout[data-callout="law"] .callout-title-inner,
+.markdown-rendered .callout[data-callout="law"] .callout-icon {
+  color: var(--d-pink);
+}
+
+/* [!note] — the aside voice */
+.markdown-rendered .callout[data-callout="note"] .callout-content {
+  font-family: var(--d-hand);
+  color: var(--d-pink);
+}
+
+/* ---------- tables ---------- */
+
+.markdown-rendered th {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--d-line);
+  padding: 8px 12px 8px 0;
+}
+
+.markdown-rendered td {
+  border: none;
+  border-bottom: 1px solid var(--d-row-line);
+  padding: 9px 12px 9px 0;
+  vertical-align: top;
+}
+
+/* the first column is always the noun */
+.markdown-rendered td:first-child {
+  font-family: var(--d-mono);
+  font-size: 0.85rem;
+  color: var(--d-teal);
+  white-space: nowrap;
+}
+
+/* ---------- task lists ---------- */
+
+.markdown-rendered .task-list-item-checkbox {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--d-line);
+  border-radius: 2px;
+  background: var(--d-panel-2);
+  position: relative;
+  cursor: pointer;
+  margin-inline-end: 8px;
+}
+
+.markdown-rendered .task-list-item-checkbox:hover {
+  border-color: var(--d-teal);
+}
+
+.markdown-rendered .task-list-item-checkbox:checked {
+  border-color: var(--d-acid);
+  background: var(--d-tint-acid);
+}
+
+.markdown-rendered .task-list-item-checkbox:checked::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--d-acid);
+  font-family: var(--d-mono);
+  font-size: 13px;
+}
+
+/* ---------- chrome trims ---------- */
+
+.workspace-tab-header.is-active .workspace-tab-header-inner-title {
+  color: var(--d-teal);
+}
+
+.nav-file-title.is-active,
+.nav-folder-title.is-active {
+  color: var(--d-acid);
+}
+
+.status-bar {
+  font-family: var(--d-mono);
+  font-size: 11px;
+  border-top: 1px solid var(--d-line);
+}
+
+.workspace-leaf-content[data-type="search"] .search-result-file-title {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--d-ink-dim);
+}
+
+::selection {
+  background: var(--d-pink);
+  color: var(--d-void);
+}
+
+/* ============================================================
+   Live Preview
+   ------------------------------------------------------------
+   Reading view renders to .markdown-rendered; the editor renders
+   through CodeMirror with its own class names. Everything above
+   is invisible in edit mode without this block.
+   ============================================================ */
+
+.markdown-source-view.mod-cm6 .cm-content {
+  font-family: var(--d-body);
+}
+
+/* the markup characters themselves stay out of the way */
+.markdown-source-view.mod-cm6 .cm-formatting {
+  color: var(--d-ink-dim);
+  opacity: 0.6;
+}
+
+/* ---------- headings ---------- */
+
+.markdown-source-view.mod-cm6 .cm-header-1,
+.markdown-source-view.mod-cm6 .cm-header-2,
+.markdown-source-view.mod-cm6 .cm-header-3,
+.markdown-source-view.mod-cm6 .cm-header-4 {
+  font-family: var(--d-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.markdown-source-view.mod-cm6 .cm-header-1 {
+  color: var(--d-pink);
+  font-size: var(--h1-size);
+  line-height: 1.05;
+}
+
+.markdown-source-view.mod-cm6 .cm-header-2 {
+  color: var(--d-white);
+  font-size: var(--h2-size);
+}
+
+.markdown-source-view.mod-cm6 .cm-header-3 {
+  color: var(--d-teal);
+  font-size: var(--h3-size);
+}
+
+.markdown-source-view.mod-cm6 .cm-header-4 {
+  color: var(--d-pink);
+  font-size: var(--h4-size);
+}
+
+.markdown-source-view.mod-cm6 .cm-header-5 {
+  font-family: var(--d-machine);
+  font-size: var(--h5-size);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--d-teal);
+}
+
+.markdown-source-view.mod-cm6 .cm-header-6 {
+  font-family: var(--d-machine);
+  font-size: var(--h6-size);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--d-ink-dim);
+}
+
+/* ---------- inline ---------- */
+
+.markdown-source-view.mod-cm6 .cm-strong {
+  color: var(--d-white);
+  font-weight: 600;
+}
+
+.markdown-source-view.mod-cm6 .cm-em {
+  color: var(--d-teal);
+  font-style: normal;
+}
+
+.markdown-source-view.mod-cm6 .cm-inline-code {
+  font-family: var(--d-mono);
+  color: var(--d-teal);
+  background: var(--d-panel-2);
+  border: 1px solid var(--d-line);
+  border-radius: 2px;
+  padding: 1px 6px;
+}
+
+/* ==highlight== is the handwritten aside */
+.markdown-source-view.mod-cm6 .cm-highlight {
+  background: none;
+  font-family: var(--d-hand);
+  color: var(--d-pink);
+}
+
+.markdown-source-view.mod-cm6 .cm-link,
+.markdown-source-view.mod-cm6 .cm-url,
+.markdown-source-view.mod-cm6 .cm-hmd-internal-link {
+  color: var(--d-teal);
+}
+
+.markdown-source-view.mod-cm6 .cm-hashtag {
+  color: var(--d-pink);
+}
+
+.markdown-source-view.mod-cm6 .cm-formatting-list,
+.markdown-source-view.mod-cm6 .cm-list-bullet {
+  color: var(--d-pink);
+}
+
+/* ---------- blocks ---------- */
+
+.markdown-source-view.mod-cm6 .HyperMD-codeblock {
+  font-family: var(--d-mono);
+  background: var(--d-panel);
+  color: var(--d-ink);
+  font-size: 13px;
+  font-feature-settings: 'calt' 1, 'ss01' 1, 'ss02' 1, 'ss03' 1, 'ss04' 1;
+}
+
+.markdown-source-view.mod-cm6 .HyperMD-codeblock-begin {
+  border-top: 1px solid var(--d-line);
+  border-left: 2px solid var(--d-pink);
+}
+
+.markdown-source-view.mod-cm6 .HyperMD-codeblock-end {
+  border-bottom: 1px solid var(--d-line);
+  border-left: 2px solid var(--d-pink);
+}
+
+.markdown-source-view.mod-cm6 .HyperMD-codeblock-bg,
+.markdown-source-view.mod-cm6 .HyperMD-codeblock:not(.HyperMD-codeblock-begin):not(.HyperMD-codeblock-end) {
+  border-left: 2px solid var(--d-pink);
+}
+
+.markdown-source-view.mod-cm6 .HyperMD-quote {
+  background: var(--d-panel);
+  border-left: 1px solid var(--d-line);
+  color: var(--d-ink);
+  font-style: normal;
+}
+
+.markdown-source-view.mod-cm6 .cm-quote {
+  color: var(--d-ink);
+}
+
+/* ============================================================
+   Alternate task states
+   ------------------------------------------------------------
+   Ported from the ITS vocabulary, in the deck's palette:
+     acid  = resolved / positive     teal = in motion / neutral
+     pink  = wants attention         dim  = closed without doing
+   ============================================================ */
+
+.markdown-rendered .task-list-item-checkbox,
+.markdown-source-view.mod-cm6 .task-list-item-checkbox {
+  --d-task: var(--d-acid);
+}
+
+/* only genuinely finished or abandoned items read as struck through */
+.markdown-rendered li.task-list-item.is-checked:not([data-task="x"]):not([data-task="X"]):not([data-task="-"]),
+.markdown-source-view.mod-cm6 .task-list-item.is-checked:not([data-task="x"]):not([data-task="X"]):not([data-task="-"]) {
+  color: var(--text-normal);
+  text-decoration: none;
+}
+
+li[data-task="-"] {
+  color: var(--d-ink-dim);
+  text-decoration: line-through;
+  text-decoration-color: rgba(125, 130, 150, 0.5);
+}
+
+/* the glyph and its colour, per state */
+li[data-task] > input.task-list-item-checkbox:checked::after {
+  color: var(--d-task);
+  font-family: var(--d-mono);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+li[data-task] > input.task-list-item-checkbox:checked {
+  border-color: var(--d-task);
+  background: transparent;
+}
+
+li[data-task="/"] > input.task-list-item-checkbox { --d-task: var(--d-teal); }
+li[data-task="/"] > input.task-list-item-checkbox:checked::after { content: "◑"; }
+
+li[data-task="-"] > input.task-list-item-checkbox { --d-task: var(--d-ink-dim); }
+li[data-task="-"] > input.task-list-item-checkbox:checked::after { content: "✕"; }
+
+li[data-task=">"] > input.task-list-item-checkbox { --d-task: var(--d-pink); }
+li[data-task=">"] > input.task-list-item-checkbox:checked::after { content: "→"; }
+
+li[data-task="<"] > input.task-list-item-checkbox { --d-task: var(--d-pink); }
+li[data-task="<"] > input.task-list-item-checkbox:checked::after { content: "←"; }
+
+li[data-task="?"] > input.task-list-item-checkbox { --d-task: var(--d-acid); }
+li[data-task="?"] > input.task-list-item-checkbox:checked::after { content: "?"; }
+
+li[data-task="!"] > input.task-list-item-checkbox { --d-task: var(--d-pink); }
+li[data-task="!"] > input.task-list-item-checkbox:checked::after { content: "!"; }
+
+li[data-task="+"] > input.task-list-item-checkbox { --d-task: var(--d-acid); }
+li[data-task="+"] > input.task-list-item-checkbox:checked::after { content: "+"; }
+
+li[data-task="@"] > input.task-list-item-checkbox { --d-task: var(--d-teal); }
+li[data-task="@"] > input.task-list-item-checkbox:checked::after { content: "@"; }
+
+li[data-task="&"] > input.task-list-item-checkbox { --d-task: var(--d-teal); }
+li[data-task="&"] > input.task-list-item-checkbox:checked::after { content: "&"; }
+
+li[data-task="~"] > input.task-list-item-checkbox { --d-task: var(--d-ink-dim); }
+li[data-task="~"] > input.task-list-item-checkbox:checked::after { content: "~"; }
+
+/* an important item pulls its whole line forward */
+li[data-task="!"] {
+  color: var(--d-white);
+}
+
+/* ============================================================
+   Cards — cssclasses: cards
+   ------------------------------------------------------------
+   Turns a bullet list into a grid of panels. Add cards-cols-N
+   (1–6) to pin the column count instead of auto-fitting.
+   Reading view; the editor keeps showing a list.
+   ============================================================ */
+
+.markdown-rendered.cards ul,
+.markdown-preview-view.cards ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+  padding: 0;
+  max-width: none;
+  list-style: none;
+}
+
+.markdown-rendered.cards li,
+.markdown-preview-view.cards li {
+  background: var(--d-panel);
+  border: 1px solid var(--d-line);
+  border-radius: 3px;
+  padding: 14px 16px;
+  margin: 0;
+  overflow: hidden;
+}
+
+.markdown-rendered.cards li:hover,
+.markdown-preview-view.cards li:hover {
+  border-color: var(--d-teal);
+}
+
+.markdown-rendered.cards li::marker,
+.markdown-preview-view.cards li::marker {
+  content: "";
+}
+
+/* the first link in a card is its title */
+.markdown-rendered.cards li a:first-child,
+.markdown-preview-view.cards li a:first-child {
+  font-family: var(--d-display);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--d-white);
+  border-bottom: none;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.markdown-rendered.cards li strong,
+.markdown-preview-view.cards li strong {
+  color: var(--d-teal);
+}
+
+.cards.cards-cols-1 ul { grid-template-columns: repeat(1, 1fr); }
+.cards.cards-cols-2 ul { grid-template-columns: repeat(2, 1fr); }
+.cards.cards-cols-3 ul { grid-template-columns: repeat(3, 1fr); }
+.cards.cards-cols-4 ul { grid-template-columns: repeat(4, 1fr); }
+.cards.cards-cols-5 ul { grid-template-columns: repeat(5, 1fr); }
+.cards.cards-cols-6 ul { grid-template-columns: repeat(6, 1fr); }
+
+/* ============================================================
+   Kanban
+   ============================================================ */
+
+.kanban-plugin__board {
+  background: var(--d-void);
+}
+
+.kanban-plugin__lane {
+  background: var(--d-panel);
+  border: 1px solid var(--d-line);
+  border-radius: 3px;
+}
+
+.kanban-plugin__lane-header-wrapper {
+  border-bottom: 1px solid var(--d-line);
+  background: var(--d-panel-2);
+}
+
+.kanban-plugin__lane-title-text {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--d-acid);
+}
+
+.kanban-plugin__lane-setting-wrapper .kanban-plugin__lane-title-text {
+  text-transform: none;
+}
+
+/* the count badge reads as instrumentation */
+.kanban-plugin__lane-items-count,
+.kanban-plugin__item-count {
+  font-family: var(--d-mono);
+  font-size: 11px;
+  color: var(--d-ink-dim);
+}
+
+.kanban-plugin__item {
+  background: var(--d-panel-2);
+  border: 1px solid var(--d-line);
+  border-radius: 2px;
+  margin-bottom: 8px;
+}
+
+.kanban-plugin__item:hover {
+  border-color: var(--d-teal);
+}
+
+.kanban-plugin__item.is-complete .kanban-plugin__item-title {
+  color: var(--d-ink-dim);
+  text-decoration: line-through;
+  text-decoration-color: rgba(125, 130, 150, 0.5);
+}
+
+.kanban-plugin__item-title {
+  color: var(--d-ink);
+}
+
+.kanban-plugin__item-metadata-wrapper,
+.kanban-plugin__meta-value {
+  font-family: var(--d-mono);
+  font-size: 11px;
+  color: var(--d-ink-dim);
+}
+
+.kanban-plugin__meta-key {
+  font-family: var(--d-machine);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--d-teal);
+}
+
+.kanban-plugin__item-prefix-button-wrapper .kanban-plugin__item-prefix-button,
+.kanban-plugin__item-postfix-button {
+  color: var(--d-ink-dim);
+}
+
+.kanban-plugin__item-form,
+.kanban-plugin__item-input-wrapper {
+  background: var(--d-panel-2);
+  border-color: var(--d-line);
+}
+
+.kanban-plugin__lane-items.is-dragging-over {
+  background: var(--d-tint-acid);
+}
+
+/* ============================================================
+   Bases
+   ============================================================ */
+
+.bases-view {
+  background: var(--d-void);
+}
+
+.bases-toolbar,
+.bases-header {
+  border-bottom: 1px solid var(--d-line);
+}
+
+.bases-toolbar-menu-item {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--d-ink-dim);
+}
+
+.bases-toolbar-menu-item:hover {
+  color: var(--d-teal);
+}
+
+/* table view — the vocabulary-table treatment */
+.bases-thead,
+.bases-table-header {
+  background: transparent;
+  border-bottom: 1px solid var(--d-line);
+}
+
+.bases-thead .bases-td,
+.bases-thead .bases-table-cell,
+.bases-table-header-name {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--d-ink-dim);
+}
+
+.bases-tr {
+  border-bottom: 1px solid var(--d-row-line);
+}
+
+.bases-tr:hover {
+  background: var(--d-panel);
+}
+
+.bases-td,
+.bases-table-cell {
+  border-color: var(--d-row-line);
+  color: var(--d-ink);
+}
+
+/* first column is the note — the noun, as everywhere else */
+.bases-tbody .bases-tr > .bases-td:first-child,
+.bases-tbody .bases-tr > .bases-table-cell:first-child {
+  font-family: var(--d-mono);
+  font-size: 0.85rem;
+  color: var(--d-teal);
+}
+
+.bases-table-header-icon,
+.bases-table-header-sort {
+  color: var(--d-ink-dim);
+}
+
+.bases-group-heading {
+  font-family: var(--d-machine);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--d-acid);
+  border-bottom: 1px solid var(--d-line);
+}
+
+/* cards view */
+.bases-cards-item {
+  background: var(--d-panel);
+  border: 1px solid var(--d-line);
+  border-radius: 3px;
+}
+
+.bases-cards-item:hover {
+  border-color: var(--d-teal);
+}
+
+.bases-cards-label {
+  font-family: var(--d-machine);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--d-ink-dim);
+}
+
+.bases-cards-property .bases-rendered-value {
+  font-family: var(--d-mono);
+  font-size: 0.85rem;
+  color: var(--d-ink);
+}
+
+.bases-embed {
+  border: 1px solid var(--d-line);
+  border-radius: 3px;
+}

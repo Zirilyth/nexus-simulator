@@ -1,4 +1,4 @@
-use crate::systems::power::{PowerNet, sagging_suppliers};
+use crate::systems::power::{self, PowerNet, sagging_suppliers};
 use crate::types::catalogue::Part;
 use crate::types::condition::Condition;
 use crate::types::events::Event;
@@ -161,6 +161,11 @@ impl World {
 	pub fn power_role(&self, id: ModuleId) -> Option<PowerRole> {
 		self.part(id).power
 	}
+
+	#[must_use]
+	pub fn next_event_at(&self) -> Option<u64> {
+		power::next_event_at(&self.power)
+	}
 }
 
 #[test]
@@ -180,4 +185,58 @@ fn testudo_comes_aboard() {
 		w.power_role(brk),
 		Some(PowerRole::Gate { rating_a: 25 })
 	));
+}
+
+#[test]
+fn next_event_at_sees_everything_scheduled() {
+	use crate::types::events::Command;
+
+	let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/testudo.ron");
+	let load = || World::from_fixture_file(fixture).expect("testudo should load");
+	let power_up = |w: &World| {
+		vec![
+			Command::SetSource {
+				id: w.find_label("PWR-01").expect("PWR-01 is aboard"),
+				online: true,
+			},
+			Command::SetBreaker {
+				id: w.find_label("BRK-01").expect("BRK-01 is aboard"),
+				closed: true,
+			},
+			Command::SetBreaker {
+				id: w.find_label("BRK-02").expect("BRK-02 is aboard"),
+				closed: true,
+			},
+		]
+	};
+
+	// asleep. nothing is scheduled on a dead ship, and a fleet of hulls all
+	// answering None is a fleet that costs one comparison each to skip.
+	assert_eq!(load().next_event_at(), None, "a dark ship waits forever");
+
+	// powered: the battery's death is already solved, not counted down to.
+	// 144_000 amp-ticks at 29A — the same number the_battery_dies pins.
+	let mut w = load();
+	let script = power_up(&w);
+	let _ = crate::tick(&mut w, &script);
+	assert_eq!(
+		w.next_event_at(),
+		Some(4965),
+		"the anchor knows when she dies"
+	);
+
+	// a scheduled trip is sooner, so it wins. this is the half of the chain
+	// that reads pending_trips — drop it and the assertion above still passes.
+	let mut w = load();
+	let mut script = vec![Command::SetCondition {
+		id: w.find_label("BRK-01").expect("BRK-01 is aboard"),
+		new_condition: Condition::new(0.5).expect("0.5 is a condition"),
+	}];
+	script.extend(power_up(&w));
+	let _ = crate::tick(&mut w, &script);
+	assert_eq!(
+		w.next_event_at(),
+		Some(1),
+		"a breaker tripped this tick opens the next one"
+	);
 }

@@ -38,6 +38,8 @@ pub fn replay(fixture_text: &str, script: &[Vec<Command>]) -> Result<World, Load
 	Ok(world)
 }
 
+pub fn advance_to(world: &mut World, t: u64) -> Vec<Event> {}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
