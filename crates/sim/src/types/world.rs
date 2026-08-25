@@ -1,9 +1,9 @@
 use crate::systems::power::{self, PowerNet, sagging_suppliers};
-use crate::types::catalogue::Part;
+use crate::types::catalogue::{Part, Run};
 use crate::types::condition::Condition;
 use crate::types::events::Event;
 use crate::types::fixture::{ResolvedShip, ShipFixture};
-use crate::types::ids::NetworkKind;
+use crate::types::ids::{NetworkKind, RunId};
 use crate::types::modules::{ModuleId, ModuleMeta, PortName};
 use crate::types::role::PowerRole;
 use crate::types::symptom::Symptom;
@@ -17,7 +17,7 @@ pub struct Connection {
 	pub net: NetworkKind,
 	pub from: (ModuleId, PortName),
 	pub to: (ModuleId, PortName),
-	pub run: String,
+	pub run: RunId,
 }
 #[derive(Debug, PartialEq)]
 pub struct World {
@@ -31,6 +31,7 @@ pub struct World {
 	pub(crate) log: Vec<Event>,
 	pub(crate) parts: Vec<Part>,
 	pub(crate) port_names: Vec<String>,
+	pub(crate) runs: Vec<Run>,
 }
 
 #[derive(Debug)]
@@ -39,6 +40,7 @@ pub enum LoadError {
 	Parse(ron::error::SpannedError),
 	UnknownLabel(String),
 	UnknownPart(String),
+	UnknownRun(String),
 }
 
 impl World {
@@ -96,6 +98,7 @@ impl World {
 			log: Vec::new(),
 			parts: Vec::new(),
 			port_names: Vec::new(),
+			runs: Vec::new(),
 		}
 	}
 	#[must_use]
@@ -161,6 +164,12 @@ impl World {
 		let part_id = self.modules[&id].part;
 		&self.parts[part_id.0 as usize]
 	}
+
+	#[must_use]
+	pub fn run(&self, id: RunId) -> &Run {
+		&self.runs[id.0 as usize]
+	}
+
 	#[must_use]
 	pub fn power_role(&self, id: ModuleId) -> Option<PowerRole> {
 		self.part(id).power

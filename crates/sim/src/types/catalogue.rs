@@ -11,3 +11,9 @@ pub struct Part {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub struct PartId(pub u32);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Run {
+	label: String,
+	cap: u32,
+}

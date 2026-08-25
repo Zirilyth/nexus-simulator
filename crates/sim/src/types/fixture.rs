@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::systems::power::PowerNet;
 use crate::types::catalogue::{Part, PartId};
 use crate::types::condition::Condition;
-use crate::types::ids::NetworkKind;
+use crate::types::ids::{NetworkKind, RunId};
 use crate::types::modules::{ModuleDef, ModuleId, ModuleMeta, PortName};
 use crate::types::role::PowerRole;
 use crate::types::world::{Connection, LoadError};
@@ -34,14 +34,15 @@ pub struct ResolvedShip {
 impl TryFrom<ShipFixture> for ResolvedShip {
 	type Error = LoadError;
 	fn try_from(fx: ShipFixture) -> Result<Self, LoadError> {
-		let mut ids: BTreeMap<String, ModuleId> = BTreeMap::new();
 		let mut modules = Vec::new();
 
-		let mut part_ids: BTreeMap<String, PartId> = BTreeMap::new();
 		let mut parts: Vec<Part> = Vec::new();
-		for (i, p) in fx.parts.iter().enumerate() {
-			let pid = PartId(u32::try_from(i).expect("more than 4 billion parts in one catalogue"));
-			part_ids.insert(p.id.clone(), pid);
+
+		let part_ids = index_by(&fx.parts, |p| &p.id);
+		let run_ids = index_by(&fx.runs, |r| &r.id);
+		let module_ids = index_by(&fx.modules, |m| &m.label);
+
+		for p in fx.parts {
 			parts.push(Part {
 				name: p.name.clone(),
 				manufacturer: p.manufacturer.clone(),
@@ -52,14 +53,11 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 
 		for (i, m) in fx.modules.iter().enumerate() {
 			let id = ModuleId(u32::try_from(i).expect("more than 4 billion modules on one hull"));
-			ids.insert(m.label.clone(), id);
 			modules.push((
 				id,
 				ModuleMeta {
 					label: m.label.clone(),
-					part: *part_ids
-						.get(&m.part)
-						.ok_or_else(|| LoadError::UnknownPart(m.part.clone()))?,
+					part: PartId(lookup(&part_ids, &m.part, LoadError::UnknownPart)?),
 					serial: m.serial.clone(),
 					made: m.made,
 				},
@@ -86,18 +84,17 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 		let mut connections = Vec::new();
 
 		for c in &fx.connections {
-			let resolve = |label: &str| {
-				ids.get(label)
-					.copied()
-					.ok_or_else(|| LoadError::UnknownLabel(label.into()))
-			};
+			let resolve =
+				|label: &str| lookup(&module_ids, label, LoadError::UnknownLabel).map(ModuleId);
+
 			let from = (resolve(&c.from.0)?, intern(&c.from.1));
 			let to = (resolve(&c.to.0)?, intern(&c.to.1));
+
 			connections.push(Connection {
 				net: c.net,
 				from,
 				to,
-				run: c.run.clone(),
+				run: RunId(lookup(&run_ids, &c.run, LoadError::UnknownRun)?),
 			});
 		}
 
@@ -163,4 +160,24 @@ pub struct PartDef {
 	pub manufacturer: String,
 	pub manufacturer_part_number: String,
 	pub power: Option<PowerRole>,
+}
+
+fn index_by<T>(items: &[T], key: impl Fn(&T) -> &str) -> BTreeMap<String, u32> {
+	items
+		.iter()
+		.enumerate()
+		.map(|(i, t)| {
+			(
+				key(t).to_string(),
+				u32::try_from(i).expect("more than 4 billion of one type"),
+			)
+		})
+		.collect()
+}
+fn lookup(
+	table: &BTreeMap<String, u32>,
+	key: &str,
+	err: impl Fn(String) -> LoadError,
+) -> Result<u32, LoadError> {
+	table.get(key).copied().ok_or_else(|| err(key.to_string()))
 }
