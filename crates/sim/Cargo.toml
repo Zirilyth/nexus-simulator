@@ -11,3 +11,7 @@ workspace = true
 serde = { workspace = true }
 ron = { workspace = true }
 rand_chacha = { workspace = true }
+
+
+[dev-dependencies]
+crepe = "0.2.0"

@@ -169,6 +169,10 @@ impl World {
 	pub fn run(&self, id: RunId) -> &Run {
 		&self.runs[id.0 as usize]
 	}
+	#[must_use]
+	pub fn connections(&self) -> &[Connection] {
+		&self.connections
+	}
 
 	#[must_use]
 	pub fn power_role(&self, id: ModuleId) -> Option<PowerRole> {
