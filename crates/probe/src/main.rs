@@ -11,7 +11,7 @@
 //! function with one `allow`, and reaches the sim only through its public API.
 //! The instrument is not allowed inside the thing it measures.
 //!
-//! Usage: `cargo run --release -p probe -- [hulls] [modules] [active%] [horizon]`
+//! Usage: `cargo run --release -p probe -- [hulls] [modules] [active%] [horizon] [lookahead]`
 //! Release matters. A debug build measures LLVM's day off, not yours.
 #![allow(clippy::print_stdout, reason = "a measuring instrument reports")]
 #![allow(
@@ -42,6 +42,7 @@ fn main() {
 	let modules = arg(&mut args, 500);
 	let active_pct = arg(&mut args, 10);
 	let horizon = arg(&mut args, 20_000) as u64;
+	let lookahead = arg(&mut args, 0) as u64;
 
 	let (breakers, loads) = layout(modules);
 	let per_hull = 2 + breakers + loads;
@@ -54,6 +55,10 @@ fn main() {
 		hulls - active
 	);
 	println!("  horizon {horizon} ticks, batteries die at {DEPLETE_AT}");
+	match lookahead {
+		0 => println!("  no interaction — one jump, undocked hulls"),
+		d => println!("  lookahead {d} ticks — the fleet syncs every {d}"),
+	}
 	println!();
 
 	// ---- 1. build ------------------------------------------------------
@@ -97,11 +102,16 @@ fn main() {
 	// number of *powered* hulls, the architecture holds. If it tracks the
 	// number of hulls, the per-world scan is the ceiling and the priority
 	// queue stops being premature.
-	let ((), jump) = timed(|| universe.advance_to(horizon));
+	let (barriers, jump) = timed(|| advance_windowed(&mut universe, horizon, lookahead));
 	report("advance", jump);
+	println!("    {barriers:>10} barriers");
+	println!(
+		"    {:>10.3} ms / barrier",
+		jump.as_secs_f64() * 1000.0 / barriers as f64
+	);
 	println!(
 		"    {:>10.2} ns / hull asked",
-		jump.as_nanos() as f64 / hulls as f64
+		jump.as_nanos() as f64 / (hulls * barriers) as f64
 	);
 
 	let events: usize = ids
@@ -119,6 +129,40 @@ fn main() {
 	println!();
 	println!("prediction: `advance` tracks powered hulls, not total hulls.");
 	println!("if it tracks total, next_event_at's O(worlds) scan is the ceiling.");
+	println!("with a lookahead, cost should scale as horizon/lookahead — halve the");
+	println!("latency, double the barriers. a zero-latency channel is the cliff.");
+}
+
+/// Advance to `horizon` in windows of `lookahead` ticks, returning how many
+/// barriers that took.
+///
+/// A window is a synchronisation barrier. Once ships can send each other
+/// messages, no world may be advanced past the point where one could arrive,
+/// so the fleet can only move in steps of the shortest channel latency —
+/// that is what lookahead means in a parallel discrete-event simulation, and
+/// it is why every cross-ship channel must declare a latency above zero.
+///
+/// `lookahead == 0` is the no-interaction case: one jump, which is how
+/// undocked hulls run today.
+///
+/// Nothing here sends a message — the sim has no comms yet. What it measures
+/// is the *synchronisation* cost of having them: the price of asking every
+/// world whether it is due, once per barrier. That term scales as
+/// `horizon / lookahead` and it is the one that bites. The per-message settle
+/// cost is already known from the power-up figure above.
+fn advance_windowed(universe: &mut Universe, horizon: u64, lookahead: u64) -> usize {
+	if lookahead == 0 {
+		universe.advance_to(horizon);
+		return 1;
+	}
+	let mut at = 0;
+	let mut barriers = 0;
+	while at < horizon {
+		at = (at + lookahead).min(horizon);
+		universe.advance_to(at);
+		barriers += 1;
+	}
+	barriers
 }
 
 /// Build the fleet. Every hull is identical but for its seed, because the
