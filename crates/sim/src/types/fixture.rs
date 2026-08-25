@@ -107,9 +107,8 @@ impl From<ResolvedShip> for World {
 			condition,
 			power,
 			parts: ship.parts,
-			as_built: ship.connections.clone(), // evaluated first (source order)…
-			connections: ship.connections,      // …then the original moves. no waste, no assignment
-			..World::new(ship.seed)             // tick, rng, log from the one blessed constructor
+			connections: ship.connections, // …then the original moves. no waste, no assignment
+			..World::new(ship.seed)        // tick, rng, log from the one blessed constructor
 		};
 		// event #0, always. paracausal: the ship exists because I said so.
 		world.emit(EventKind::WorldLoaded, None);
