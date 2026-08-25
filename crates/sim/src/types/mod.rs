@@ -6,4 +6,5 @@ pub(crate) mod ids;
 pub mod modules;
 pub(crate) mod role;
 pub(crate) mod symptom;
+pub(crate) mod universe;
 pub(crate) mod world;

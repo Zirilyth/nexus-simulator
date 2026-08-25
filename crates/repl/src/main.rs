@@ -1,6 +1,9 @@
 #![allow(clippy::print_stdout, clippy::print_stderr)]
-use sim::{Command, Condition, Event, EventKind, ModuleId, PowerRole, Symptom, World, tick};
+use sim::{
+	Command, Condition, Event, EventKind, ModuleId, PowerRole, Symptom, Universe, World, tick,
+};
 use std::io::{self, BufRead, Write};
+use std::ops::ControlFlow::{self, Break, Continue};
 fn main() {
 	let path = std::env::args()
 		.nth(1)
@@ -13,107 +16,146 @@ fn main() {
 			std::process::exit(1);
 		}
 	};
+	let mut universe: Universe = Universe::new();
+	let id = universe.add_world(world);
 
 	println!("> deck.link ............ CONNECTED");
 	println!(
 		"> {} modules aboard. 'help' for verbs.",
-		world.modules().len()
+		universe.world(id).map_or(0, |world| world.modules().len())
 	);
 	print_usage();
 
 	let stdin = io::stdin();
-	let mut world = world; // she mutates now
 	let mut queued: Vec<Command> = Vec::new();
 
 	let mut history: Vec<Vec<Command>> = Vec::new();
 
-	loop {
+	while let Some(world) = universe.world_mut(id) {
 		print!("deck> ");
 		let _ = io::stdout().flush();
 
 		let Some(Ok(line)) = stdin.lock().lines().next() else {
 			break;
 		};
-		let mut words = line.split_whitespace();
+		let words = line.split_whitespace();
 
-		match (words.next(), words.next()) {
-			(Some("quit" | "q" | "exit"), _) => break,
-
-			(Some("list"), _) => {
-				for (id, m) in world.modules() {
-					let part = world.part(*id);
-					println!("  [{:>2}] {:<8} {:<12}", id.0, m.label, part.name);
-				}
-			}
-
-			(Some("inspect"), Some(label)) => {
-				match world.modules().iter().find(|(_, m)| m.label == label) {
-					Some((id, m)) => {
-						let part = world.part(*id);
-						let cond = world.condition_of(*id).map(Condition::get);
-						println!("  {} — {}", m.label, part.name);
-						println!(
-							"  maker  {:<10} part {}",
-							part.manufacturer, part.manufacturer_part_number
-						);
-						println!("  serial {}", m.serial);
-						println!("  made   {:.2}    condition {:.2?}", m.made, cond);
-					}
-					None => println!("  no module '{label}' aboard."),
-				}
-			}
-			(Some("status"), Some(label)) => print_status(&world, label),
-
-			(Some("source"), Some(onoff)) => match (words.next(), onoff) {
-				(Some(label), "on" | "off") => {
-					queue_source(&world, &mut queued, label, onoff == "on");
-				}
-				_ => println!("  usage: source on|off <LABEL>"),
-			},
-
-			(Some("breaker"), Some(openclose)) => match (words.next(), openclose) {
-				(Some(label), "open" | "close") => {
-					queue_breaker(&world, &mut queued, label, openclose == "close");
-				}
-				_ => println!("  usage: breaker open|close <LABEL>"),
-			},
-
-			(Some("tick"), n) => {
-				let n: u64 = n.and_then(|s| s.parse().ok()).unwrap_or(1);
-				for _ in 0..n {
-					history.push(queued.clone());
-					let events = tick(&mut world, &queued);
-					queued.clear();
-					for ev in &events {
-						print_event(&world, ev);
-					}
-				}
-			}
-			(Some("condition"), Some(label)) => match words.next() {
-				Some(value) => queue_condition(&world, &mut queued, label, value),
-				None => println!(" usage: condition <LABEL> <0.0-1.0>"),
-			},
-			(Some("save"), Some(file)) => save_history(&history, file),
-			(Some("replay"), Some(file)) => replay_history(&path, file),
-
-			(Some("log"), n) => {
-				let n: usize = n.and_then(|s| s.parse().ok()).unwrap_or(10);
-				for ev in world.log().iter().rev().take(n).rev() {
-					print_event(&world, ev);
-				}
-			}
-			(Some("scan"), _) => {
-				print_scan(&world);
-			}
-
-			(Some("help" | "?"), _) => print_usage(),
-
-			(Some(cmd), _) => {
-				println!("  unknown verb '{cmd}'.");
-				print_usage();
-			}
-			(None, _) => {}
+		if dispatch(&path, &mut queued, &mut history, words, world).is_break() {
+			break;
 		}
+	}
+}
+
+fn dispatch(
+	path: &str,
+	queued: &mut Vec<Command>,
+	history: &mut Vec<Vec<Command>>,
+	mut words: std::str::SplitWhitespace<'_>,
+	world: &mut World,
+) -> ControlFlow<(), ()> {
+	match (words.next(), words.next()) {
+		(Some("quit" | "q" | "exit"), _) => Break(()),
+
+		(Some("list"), _) => {
+			for (id, m) in world.modules() {
+				let part = world.part(*id);
+				println!("  [{:>2}] {:<8} {:<12}", id.0, m.label, part.name);
+			}
+			Continue(())
+		}
+
+		(Some("inspect"), Some(label)) => {
+			match world.modules().iter().find(|(_, m)| m.label == label) {
+				Some((id, m)) => {
+					let part = world.part(*id);
+					let cond = world.condition_of(*id).map(Condition::get);
+					println!("  {} — {}", m.label, part.name);
+					println!(
+						"  maker  {:<10} part {}",
+						part.manufacturer, part.manufacturer_part_number
+					);
+					println!("  serial {}", m.serial);
+					println!("  made   {:.2}    condition {:.2?}", m.made, cond);
+				}
+				None => println!("  no module '{label}' aboard."),
+			}
+			Continue(())
+		}
+		(Some("status"), Some(label)) => {
+			print_status(world, label);
+			Continue(())
+		}
+
+		(Some("source"), Some(onoff)) => {
+			if let (Some(label), "on" | "off") = (words.next(), onoff) {
+				queue_source(world, queued, label, onoff == "on");
+			} else {
+				println!("  usage: source on|off <LABEL>");
+			}
+			Continue(())
+		}
+
+		(Some("breaker"), Some(openclose)) => {
+			if let (Some(label), "open" | "close") = (words.next(), openclose) {
+				queue_breaker(world, queued, label, openclose == "close");
+			} else {
+				println!("  usage: breaker open|close <LABEL>");
+			}
+			Continue(())
+		}
+
+		(Some("tick"), n) => {
+			let n: u64 = n.and_then(|s| s.parse().ok()).unwrap_or(1);
+			for _ in 0..n {
+				history.push(queued.clone());
+				let events = tick(world, &*queued);
+				queued.clear();
+				for ev in &events {
+					print_event(world, ev);
+				}
+			}
+			Continue(())
+		}
+		(Some("condition"), Some(label)) => {
+			if let Some(value) = words.next() {
+				queue_condition(world, queued, label, value);
+			} else {
+				println!(" usage: condition <LABEL> <0.0-1.0>");
+			}
+			Continue(())
+		}
+		(Some("save"), Some(file)) => {
+			save_history(&*history, file);
+			Continue(())
+		}
+		(Some("replay"), Some(file)) => {
+			replay_history(path, file);
+			Continue(())
+		}
+
+		(Some("log"), n) => {
+			let n: usize = n.and_then(|s| s.parse().ok()).unwrap_or(10);
+			for ev in world.log().iter().rev().take(n).rev() {
+				print_event(world, ev);
+			}
+			Continue(())
+		}
+		(Some("scan"), _) => {
+			print_scan(world);
+			Continue(())
+		}
+
+		(Some("help" | "?"), _) => {
+			print_usage();
+			Continue(())
+		}
+
+		(Some(cmd), _) => {
+			println!("  unknown verb '{cmd}'.");
+			print_usage();
+			Continue(())
+		}
+		(None, _) => Continue(()),
 	}
 }
 

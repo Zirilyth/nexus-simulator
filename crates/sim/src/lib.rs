@@ -7,9 +7,11 @@ pub use types::catalogue::Part;
 pub use types::condition::Condition;
 pub use types::events::{Command, Event, EventId, EventKind, RejectReason};
 pub use types::ids::NetworkKind;
+pub use types::ids::ShipId;
 pub use types::modules::{ModuleId, ModuleMeta, PortName};
 pub use types::role::PowerRole;
 pub use types::symptom::Symptom;
+pub use types::universe::Universe;
 #[must_use = "events are history. drop them deliberately or not at all"]
 pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
 	let first_new = world.log.len();

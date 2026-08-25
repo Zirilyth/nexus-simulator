@@ -8,6 +8,10 @@ pub enum NetworkKind {
 	Thermal,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Eq, Ord)]
+#[serde(try_from = "u32")]
+pub struct ShipId(pub u32);
+
 #[cfg(test)]
 mod tests {
 	use crate::types::modules::ModuleId;
