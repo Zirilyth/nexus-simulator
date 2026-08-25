@@ -1,7 +1,7 @@
 pub(crate) mod systems;
 pub(crate) mod types;
 use crate::systems::commands::apply_commands;
-use crate::systems::power::{tick_depletion, tick_power};
+use crate::systems::power::process;
 pub use crate::types::world::{Connection, LoadError, World};
 pub use types::catalogue::Part;
 pub use types::condition::Condition;
@@ -16,8 +16,7 @@ pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
 
 	// trips scheduled last tick open first: a thermal breaker acts late, and
 	// the delay is what keeps a trip from feeding back into its own cause.
-	tick_power(world);
-	tick_depletion(world);
+	process(world);
 	apply_commands(world, commands);
 
 	world.tick += 1;
@@ -38,7 +37,20 @@ pub fn replay(fixture_text: &str, script: &[Vec<Command>]) -> Result<World, Load
 	Ok(world)
 }
 
-pub fn advance_to(world: &mut World, t: u64) -> Vec<Event> {}
+pub fn advance_to(world: &mut World, t: u64) -> Vec<Event> {
+	let first_new = world.log.len();
+
+	while let Some(next) = world.next_event_at() {
+		if next > t {
+			break;
+		}
+		world.tick = next.max(world.tick);
+		process(world);
+		//
+	}
+	world.tick = t;
+	world.log[first_new..].to_vec()
+}
 
 #[cfg(test)]
 mod tests {

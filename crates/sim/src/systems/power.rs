@@ -44,6 +44,11 @@ pub struct PowerNet {
 	pub(crate) pending_trips: BTreeMap<ModuleId, (u64, EventId)>,
 }
 
+pub(crate) fn process(world: &mut World) {
+	tick_power(world);
+	tick_depletion(world);
+}
+
 /// Trips scheduled last tick fire now. A thermal breaker is not instantaneous.
 pub(crate) fn tick_power(world: &mut World) {
 	let due: Vec<ModuleId> = world
