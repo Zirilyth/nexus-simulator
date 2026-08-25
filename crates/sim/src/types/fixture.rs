@@ -28,6 +28,7 @@ pub struct ResolvedShip {
 	pub modules: Vec<(ModuleId, ModuleMeta, Condition)>,
 	pub connections: Vec<Connection>,
 	pub parts: Vec<Part>,
+	pub port_names: Vec<String>,
 }
 
 impl TryFrom<ShipFixture> for ResolvedShip {
@@ -66,18 +67,36 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 			));
 		}
 
+		let mut port_names: Vec<String> = Vec::new();
+		let mut seen: BTreeMap<String, PortName> = BTreeMap::new();
+
+		let mut intern = |text: &str| -> PortName {
+			if let Some(p) = seen.get(text) {
+				return *p;
+			}
+			let p = PortName(
+				u32::try_from(port_names.len()).expect("more than 4 billion distinct port names"),
+			);
+			port_names.push(text.to_string());
+			seen.insert(text.to_string(), p);
+			p
+		};
+
 		// pass 2: resolution — YOUR connections loop, verbatim
 		let mut connections = Vec::new();
+
 		for c in &fx.connections {
 			let resolve = |label: &str| {
 				ids.get(label)
 					.copied()
 					.ok_or_else(|| LoadError::UnknownLabel(label.into()))
 			};
+			let from = (resolve(&c.from.0)?, intern(&c.from.1));
+			let to = (resolve(&c.to.0)?, intern(&c.to.1));
 			connections.push(Connection {
 				net: c.net,
-				from: (resolve(&c.from.0)?, PortName(c.from.1.clone())),
-				to: (resolve(&c.to.0)?, PortName(c.to.1.clone())),
+				from,
+				to,
 				run: c.run.clone(),
 			});
 		}
@@ -87,6 +106,7 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 			modules,
 			connections,
 			parts,
+			port_names,
 		})
 		//  ^ the tail expression. no `return`. this is the value.
 	}

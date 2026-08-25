@@ -27,10 +27,10 @@ pub struct World {
 	pub(crate) modules: BTreeMap<ModuleId, ModuleMeta>,
 	pub(crate) condition: BTreeMap<ModuleId, Condition>,
 	pub(crate) connections: Vec<Connection>,
-	pub(crate) as_built: Vec<Connection>,
 	pub(crate) power: PowerNet,
 	pub(crate) log: Vec<Event>,
 	pub(crate) parts: Vec<Part>,
+	pub(crate) port_names: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -92,10 +92,10 @@ impl World {
 			modules: BTreeMap::new(),
 			condition: BTreeMap::new(),
 			connections: Vec::new(),
-			as_built: Vec::new(),
 			power: PowerNet::default(),
 			log: Vec::new(),
 			parts: Vec::new(),
+			port_names: Vec::new(),
 		}
 	}
 	#[must_use]
@@ -134,6 +134,10 @@ impl World {
 			kind,
 		});
 		id
+	}
+	#[must_use]
+	pub fn port_name(&self, p: PortName) -> &str {
+		&self.port_names[p.0 as usize]
 	}
 	#[must_use]
 	pub fn symptom_of(&self, id: ModuleId) -> Option<Symptom> {
@@ -178,7 +182,6 @@ fn testudo_comes_aboard() {
 
 	assert_eq!(w.modules.len(), 14);
 	assert_eq!(w.connections.len(), 14);
-	assert_eq!(w.as_built, w.connections); // true today. wait a decade.
 
 	let brk = w.find_label("BRK-01").expect("BRK-01 is aboard");
 	assert!(matches!(

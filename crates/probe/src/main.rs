@@ -49,7 +49,10 @@ fn main() {
 	let active = hulls * active_pct / 100;
 
 	println!("probe — {hulls} hulls x {per_hull} modules = {total} objects");
-	println!("  {active} powered ({active_pct}%), {} dark", hulls - active);
+	println!(
+		"  {active} powered ({active_pct}%), {} dark",
+		hulls - active
+	);
 	println!("  horizon {horizon} ticks, batteries die at {DEPLETE_AT}");
 	println!();
 
@@ -64,7 +67,10 @@ fn main() {
 	report("build", build);
 	println!("    {:>10.1} us / hull", per_unit(build, hulls));
 	println!("    {:>10.2} us / module", per_unit(build, total));
-	println!("    {held:>10} KiB resident  ({:.0} B / module)", bytes_per(held, total));
+	println!(
+		"    {held:>10} KiB resident  ({:.0} B / module)",
+		bytes_per(held, total)
+	);
 	println!();
 
 	// ---- 2. one settle -------------------------------------------------
@@ -74,9 +80,15 @@ fn main() {
 	let mut universe = universe;
 	let (settle, powered, settles) = power_up(&mut universe, &ids, active);
 	report("power-up", settle);
-	println!("    {settles:>10} settles ({} per hull — one per accepted command)", settles / active.max(1));
+	println!(
+		"    {settles:>10} settles ({} per hull — one per accepted command)",
+		settles / active.max(1)
+	);
 	println!("    {:>10.2} us / settle", per_unit(settle, settles));
-	println!("    {:>10.3} us / module / settle", per_unit(settle, powered * settles / active.max(1)));
+	println!(
+		"    {:>10.3} us / module / settle",
+		per_unit(settle, powered * settles / active.max(1))
+	);
 	println!();
 
 	// ---- 3. the jump ---------------------------------------------------
@@ -85,9 +97,12 @@ fn main() {
 	// number of *powered* hulls, the architecture holds. If it tracks the
 	// number of hulls, the per-world scan is the ceiling and the priority
 	// queue stops being premature.
-	let (_, jump) = timed(|| universe.advance_to(horizon));
+	let ((), jump) = timed(|| universe.advance_to(horizon));
 	report("advance", jump);
-	println!("    {:>10.2} ns / hull asked", jump.as_nanos() as f64 / hulls as f64);
+	println!(
+		"    {:>10.2} ns / hull asked",
+		jump.as_nanos() as f64 / hulls as f64
+	);
 
 	let events: usize = ids
 		.iter()
@@ -96,7 +111,10 @@ fn main() {
 		.sum();
 	println!("    {events:>10} events in the log");
 	if jump.as_secs_f64() > 0.0 {
-		println!("    {:>10.0} events / sec", events as f64 / jump.as_secs_f64());
+		println!(
+			"    {:>10.0} events / sec",
+			events as f64 / jump.as_secs_f64()
+		);
 	}
 	println!();
 	println!("prediction: `advance` tracks powered hulls, not total hulls.");
@@ -120,7 +138,11 @@ fn build(hulls: usize, modules: usize) -> (Universe, Vec<sim::ShipId>) {
 /// Bring the first `active` hulls online: battery on, every breaker shut.
 /// Returns the time spent and how many modules were settled, so the per-module
 /// figure divides by work done rather than by fleet size.
-fn power_up(universe: &mut Universe, ids: &[sim::ShipId], active: usize) -> (Duration, usize, usize) {
+fn power_up(
+	universe: &mut Universe,
+	ids: &[sim::ShipId],
+	active: usize,
+) -> (Duration, usize, usize) {
 	let mut spent = Duration::ZERO;
 	let mut settled = 0;
 	let mut settles = 0;
@@ -227,7 +249,9 @@ fn hull_ron(seed: u64, target: usize) -> String {
 	s.push_str("],\n");
 
 	s.push_str("connections: [\n");
-	s.push_str("(net: Power, from: (\"PWR-01\", \"out\"), to: (\"BUS-01\", \"in\"), run: \"TRUNK\"),\n");
+	s.push_str(
+		"(net: Power, from: (\"PWR-01\", \"out\"), to: (\"BUS-01\", \"in\"), run: \"TRUNK\"),\n",
+	);
 	for b in 0..breakers {
 		let _ = writeln!(
 			s,
