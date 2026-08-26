@@ -1,4 +1,9 @@
 #![allow(dead_code)]
+// `allow-expect-in-tests` covers `#[test]` functions; a helper module beside them
+// is not one, so it needs saying here. A fixture that will not load, or a label
+// that is not aboard, is a broken test rather than a case to handle — failing
+// loudly at the setup line is the whole point.
+#![allow(clippy::expect_used)]
 use sim::{Command, Condition, ModuleId, World};
 
 pub const TESTUDO: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/testudo.ron");

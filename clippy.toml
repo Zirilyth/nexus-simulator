@@ -7,3 +7,6 @@ disallowed-methods = [
     { path = "std::time::Instant::now", reason = "the universe has one clock: world.tick" },
 ]
 allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true

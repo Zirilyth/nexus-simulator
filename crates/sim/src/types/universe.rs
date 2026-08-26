@@ -27,16 +27,16 @@ impl Universe {
 	}
 
 	#[must_use]
-	pub fn new() -> Universe {
+	pub const fn new() -> Self {
 		let empty_list: BTreeMap<ShipId, World> = BTreeMap::new();
-		Universe { worlds: empty_list }
+		Self { worlds: empty_list }
 	}
 
 	pub fn add_world(&mut self, world: World) -> ShipId {
 		let id = ShipId(
 			self.worlds
 				.last_key_value()
-				.map_or(0, |(last, _)| last.0 + 1),
+				.map_or(0, |(last, _)| last.0.saturating_add(1)),
 		);
 		self.worlds.insert(id, world);
 		id

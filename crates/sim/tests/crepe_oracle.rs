@@ -168,6 +168,7 @@ fn the_rules_track_the_ship_through_a_script() {
 /// and stops. Nothing it derives is allowed to mutate anything.
 #[allow(
 	clippy::disallowed_types,
+	clippy::collection_is_never_read,
 	reason = "crepe's generated fixpoint uses HashSet/HashMap internally. a datalog \
 	          solution is a SET — derivation order cannot change its contents — and \
 	          solve() collects into a BTreeSet before anything can observe an order. \

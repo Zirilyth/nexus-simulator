@@ -17,7 +17,11 @@
 #![allow(
 	clippy::cast_precision_loss,
 	clippy::cast_possible_truncation,
-	reason = "reporting arithmetic — a tenth of a microsecond either way is not the finding"
+	clippy::as_conversions,
+	clippy::arithmetic_side_effects,
+	clippy::expect_used,
+	reason = "reporting arithmetic — a tenth of a microsecond either way is not the finding. \
+	          the sim's laws bind the sim; this is the instrument reading it from outside."
 )]
 
 use sim::{Command, Universe, World, tick};
@@ -231,7 +235,7 @@ fn bring_up(world: &World) -> Vec<Command> {
 /// breaker carries more than `LOADS_PER_BREAKER` and nothing trips.
 fn layout(target: usize) -> (usize, usize) {
 	let body = target.saturating_sub(2).max(2);
-	let breakers = body.div_ceil(LOADS_PER_BREAKER + 1).max(1);
+	let breakers = body.div_ceil(LOADS_PER_BREAKER.saturating_add(1)).max(1);
 	(breakers, body - breakers)
 }
 
@@ -246,7 +250,7 @@ fn hull_ron(seed: u64, target: usize) -> String {
 	// not one tick longer, so every powered ship has exactly one scheduled
 	// event and we know where it is.
 	let capacity = draw * DEPLETE_AT;
-	let headroom = draw as u32 + 10;
+	let headroom = (draw as u32).saturating_add(10);
 
 	let mut s = String::with_capacity(target * 128);
 	s.push_str("ShipFixture(\n");

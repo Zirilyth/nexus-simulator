@@ -36,7 +36,7 @@ impl SourceState {
 	}
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct PowerNet {
 	pub(crate) states: BTreeMap<ModuleId, PowerState>,
 	pub(crate) breakers: BTreeMap<ModuleId, BreakerState>,
@@ -86,6 +86,14 @@ pub(crate) fn tick_depletion(world: &mut World) {
 		.collect();
 
 	for (id, anchor_cause) in dead {
+		// the plan four lines up was built by iterating this exact table, so the
+		// key is present by construction. a silent skip here would drop a
+		// depletion from the log and produce a plausible, wrong history — the
+		// one failure mode worth crashing over.
+		#[expect(
+			clippy::expect_used,
+			reason = "planned from this table, immediately above"
+		)]
 		let s = world
 			.power
 			.sources
@@ -161,22 +169,29 @@ fn emit_power_changes(
 	reached: &BTreeSet<ModuleId>,
 	cause: Option<EventId>,
 ) -> Vec<(ModuleId, EventId)> {
+	// carry the previous value out of the same visit rather than indexing back
+	// in — one pass, and no lookup that could fail.
 	let changes: Vec<(ModuleId, bool)> = world
 		.power
 		.states
-		.keys()
-		.map(|id| (*id, reached.contains(id)))
-		.filter(|(id, now)| world.power.states[id].energised != *now)
+		.iter()
+		.map(|(id, state)| (*id, state.energised, reached.contains(id)))
+		.filter(|(_, was, now)| was != now)
+		.map(|(id, _, now)| (id, now))
 		.collect();
 
 	let mut announced = Vec::new();
 	for (id, energised) in changes {
-		world
+		#[expect(
+			clippy::expect_used,
+			reason = "diffed from this table, immediately above"
+		)]
+		let state = world
 			.power
 			.states
 			.get_mut(&id)
-			.expect("diffed from this table")
-			.energised = energised;
+			.expect("diffed from this table");
+		state.energised = energised;
 		announced.push((
 			id,
 			world.emit(EventKind::PowerChanged { id, energised }, cause),
@@ -211,7 +226,7 @@ fn schedule_overloads(
 			let Some(PowerRole::Gate { rating_a }) = world.power_role(*id) else {
 				return None;
 			};
-			let condition = world.condition[id];
+			let condition = world.condition_of(*id)?;
 			let degraded_rating_a = degraded_rating(rating_a, condition);
 			let (load_a, downstream) = downstream_load(world, adj, *id);
 			let already = world.power.pending_trips.contains_key(id);
@@ -247,12 +262,12 @@ fn schedule_overloads(
 			},
 			fault.blame,
 		);
-
+		let next_tick = world.tick.saturating_add(1);
 		world
 			.power
 			.pending_trips
 			.entry(fault.id)
-			.or_insert((world.tick + 1, ev));
+			.or_insert((next_tick, ev));
 	}
 }
 
@@ -280,7 +295,7 @@ fn schedule_supply_faults(
 			let (load_a, downstream) = downstream_load(world, adj, *id);
 			let supply_limit_a = world.power_role(*id)?.supply_limit_a()?;
 			// let supply_limit_a = supply_limit(meta)?;
-			let condition = world.condition[id];
+			let condition = world.condition_of(*id)?;
 			let degraded_limit_a = degraded_rating(supply_limit_a, condition);
 			if load_a <= degraded_limit_a {
 				return None;
@@ -321,12 +336,13 @@ fn schedule_supply_faults(
 			},
 			fault.blame,
 		);
+		let next_tick = world.tick.saturating_add(1);
 		for victim in fault.victims {
 			world
 				.power
 				.pending_trips
 				.entry(victim)
-				.or_insert((world.tick + 1, ev));
+				.or_insert((next_tick, ev));
 		}
 	}
 }
@@ -336,13 +352,19 @@ fn schedule_supply_faults(
 /// settle just wrote — T+1, deliberately, not T.
 fn reanchor_sources(world: &mut World, adj: &Adjacency, cause: Option<EventId>) {
 	let now = world.tick;
-	let ids: Vec<ModuleId> = world.power.sources.keys().copied().collect();
-	let rates: Vec<(ModuleId, u32)> = ids
-		.into_iter()
+	let rates: Vec<(ModuleId, u32)> = world
+		.power
+		.sources
+		.keys()
+		.copied()
 		.map(|id| (id, downstream_load(world, adj, id).0))
 		.collect();
 
 	for (id, rate_a) in rates {
+		#[expect(
+			clippy::expect_used,
+			reason = "planned from this table, immediately above"
+		)]
 		let s = world
 			.power
 			.sources
@@ -354,8 +376,13 @@ fn reanchor_sources(world: &mut World, adj: &Adjacency, cause: Option<EventId>) 
 			s.rate_a = rate_a;
 			s.anchor_cause = cause;
 		}
-		s.depletion_tick = if s.online && s.rate_a > 0 {
-			Some(s.anchor_tick + s.charge_anchor / u64::from(s.rate_a))
+		// `None` already means "never depletes", so both edge cases land on it
+		// without inventing anything: a source drawing nothing divides by zero,
+		// and a depletion past representable time is not a depletion.
+		s.depletion_tick = if s.online {
+			s.charge_anchor
+				.checked_div(u64::from(s.rate_a))
+				.and_then(|ticks| s.anchor_tick.checked_add(ticks))
 		} else {
 			None
 		};
@@ -369,7 +396,7 @@ fn reanchor_sources(world: &mut World, adj: &Adjacency, cause: Option<EventId>) 
 fn downstream_load(world: &World, adj: &Adjacency, from: ModuleId) -> (u32, BTreeSet<ModuleId>) {
 	let mut seen: BTreeSet<ModuleId> = BTreeSet::new();
 	let mut queue = VecDeque::from([from]);
-	let mut total = 0;
+	let mut total: u32 = 0;
 
 	while let Some(at) = queue.pop_front() {
 		for &next in adj.get(&at).into_iter().flatten() {
@@ -377,12 +404,14 @@ fn downstream_load(world: &World, adj: &Adjacency, from: ModuleId) -> (u32, BTre
 				continue;
 			}
 
-			if world.power.states.get(&next).is_some_and(|s| s.energised) {
-				total += effective_draw(
+			if world.power.states.get(&next).is_some_and(|s| s.energised)
+				&& let Some(condition) = world.condition_of(next)
+			{
+				total = total.saturating_add(effective_draw(
 					world.power_role(next).map_or(0, PowerRole::draw_a),
 					true,
-					world.condition[&next],
-				);
+					condition,
+				));
 			}
 			queue.push_back(next);
 		}
@@ -402,9 +431,15 @@ impl PowerNet {
 	/// Every module gets its power rows by kind. Exhaustive — a new kind
 	/// must state its relationship to electricity before this compiles.
 	pub(crate) fn from_modules(parts: &[Part], modules: &BTreeMap<ModuleId, ModuleMeta>) -> Self {
-		let mut net = PowerNet::default();
+		let mut net = Self::default();
 		for (id, meta) in modules {
-			match parts[meta.part.0 as usize].power {
+			let Some(part) = usize::try_from(meta.part.0).ok().and_then(|i| parts.get(i)) else {
+				// unreachable while PartId is minted only by the resolver. a
+				// module with no catalogue entry simply has no opinion about
+				// electricity, which is the same shape as a valve.
+				continue;
+			};
+			match part.power {
 				Some(PowerRole::Gate { .. }) => {
 					net.breakers.insert(*id, BreakerState { closed: true });
 					net.states.insert(*id, PowerState { energised: false });
@@ -438,10 +473,15 @@ impl PowerNet {
 const RATING_BUFFER: f32 = 0.7;
 
 //Its intended to round down to whole amps, so this is fine
-#[allow(
+#[expect(
 	clippy::cast_precision_loss,
 	clippy::cast_possible_truncation,
-	clippy::cast_sign_loss
+	clippy::cast_sign_loss,
+	clippy::as_conversions,
+	reason = "one multiply and one truncation, back to whole amps. rounding down IS the \
+	          intent, and IEEE 754 single multiplication is exactly-rounded, so this stays \
+	          deterministic across machines. the purity card bans transcendentals and \
+	          accumulation, not one mul."
 )]
 fn degraded_rating(rating_a: u32, condition: Condition) -> u32 {
 	if condition.get() >= RATING_BUFFER {
@@ -461,8 +501,10 @@ pub(crate) fn sagging_suppliers(world: &World) -> BTreeSet<ModuleId> {
 			// let limit = supply_limit(meta)?;
 			let (load, seen) = downstream_load(world, &adj, *id);
 
-			let degraded_limit = degraded_rating(limit, world.condition[id]);
-			if load * 10 >= degraded_limit * 8 && load > 0 {
+			let degraded_limit = degraded_rating(limit, world.condition_of(*id)?);
+			// the 80% sag threshold, in integers to keep floats out of the sim.
+			// widened to u64 so the ratio cannot overflow before it is compared.
+			if u64::from(load) * 10 >= u64::from(degraded_limit) * 8 && load > 0 {
 				return Some(seen);
 			}
 			None

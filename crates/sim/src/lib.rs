@@ -21,8 +21,8 @@ pub fn tick(world: &mut World, commands: &[Command]) -> Vec<Event> {
 	process(world);
 	apply_commands(world, commands);
 
-	world.tick += 1;
-	world.log[first_new..].to_vec()
+	world.tick = world.tick.saturating_add(1);
+	world.log.iter().skip(first_new).cloned().collect()
 }
 
 /// Fold a command script over a fresh world — `U(seed, log)`, executable.
@@ -51,7 +51,7 @@ pub fn advance_to(world: &mut World, t: u64) -> Vec<Event> {
 		//
 	}
 	world.tick = t;
-	world.log[first_new..].to_vec()
+	world.log.iter().skip(first_new).cloned().collect()
 }
 
 #[cfg(test)]

@@ -66,7 +66,7 @@ pub enum Command {
 		new_condition: Condition,
 	},
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RejectReason {
 	NoSuchModule(ModuleId),
 	NotABreaker(ModuleId),

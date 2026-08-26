@@ -15,10 +15,26 @@ missing_debug_implementations = "warn"
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
-unwrap_used = "warn"
 wildcard_enum_match_arm = "deny"
 print_stdout = "warn"
 print_stderr = "warn"
-
 dbg_macro = "warn"
-todo = "warn"
+
+# This rule is intentional to constrain the 
+# visibility so sim has a mostly closed api to the consumers
+redundant_pub_crate = "allow"
+
+nursery = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+unreachable = "deny"
+unimplemented = "deny"
+unchecked_time_subtraction = "deny"
+todo = "deny"
+string_slice = "deny"
+panic_in_result_fn = "deny"
+panic = "deny"
+exit = "deny"
+as_conversions = "deny"

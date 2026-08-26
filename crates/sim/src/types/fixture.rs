@@ -38,9 +38,9 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 
 		let mut parts: Vec<Part> = Vec::new();
 
-		let part_ids = index_by(&fx.parts, |p| &p.id);
-		let run_ids = index_by(&fx.runs, |r| &r.id);
-		let module_ids = index_by(&fx.modules, |m| &m.label);
+		let part_ids = index_by(&fx.parts, |p| &p.id, "parts in one catalogue")?;
+		let run_ids = index_by(&fx.runs, |r| &r.id, "runs on one hull")?;
+		let module_ids = index_by(&fx.modules, |m| &m.label, "modules on one hull")?;
 
 		for p in fx.parts {
 			parts.push(Part {
@@ -52,7 +52,8 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 		}
 
 		for (i, m) in fx.modules.iter().enumerate() {
-			let id = ModuleId(u32::try_from(i).expect("more than 4 billion modules on one hull"));
+			let id =
+				ModuleId(u32::try_from(i).map_err(|_| LoadError::TooMany("modules on one hull"))?);
 			modules.push((
 				id,
 				ModuleMeta {
@@ -68,16 +69,20 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 		let mut port_names: Vec<String> = Vec::new();
 		let mut seen: BTreeMap<String, PortName> = BTreeMap::new();
 
-		let mut intern = |text: &str| -> PortName {
+		// unlike parts and modules, port names are never declared — they appear
+		// inline, repeated, once per connection end. so the table is built by
+		// discovery, and `seen` answers the one question that makes it worth
+		// doing: have I met this string before?
+		let mut intern = |text: &str| -> Result<PortName, LoadError> {
 			if let Some(p) = seen.get(text) {
-				return *p;
+				return Ok(*p);
 			}
-			let p = PortName(
-				u32::try_from(port_names.len()).expect("more than 4 billion distinct port names"),
-			);
+			let index = u32::try_from(port_names.len())
+				.map_err(|_| LoadError::TooMany("distinct port names"))?;
+			let p = PortName(index);
 			port_names.push(text.to_string());
 			seen.insert(text.to_string(), p);
-			p
+			Ok(p)
 		};
 
 		// pass 2: resolution — YOUR connections loop, verbatim
@@ -87,8 +92,8 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 			let resolve =
 				|label: &str| lookup(&module_ids, label, LoadError::UnknownLabel).map(ModuleId);
 
-			let from = (resolve(&c.from.0)?, intern(&c.from.1));
-			let to = (resolve(&c.to.0)?, intern(&c.to.1));
+			let from = (resolve(&c.from.0)?, intern(&c.from.1)?);
+			let to = (resolve(&c.to.0)?, intern(&c.to.1)?);
 
 			connections.push(Connection {
 				net: c.net,
@@ -98,7 +103,7 @@ impl TryFrom<ShipFixture> for ResolvedShip {
 			});
 		}
 
-		Ok(ResolvedShip {
+		Ok(Self {
 			seed: fx.seed,
 			modules,
 			connections,
@@ -119,13 +124,13 @@ impl From<ResolvedShip> for World {
 		}
 		let power = PowerNet::from_modules(&ship.parts, &modules);
 
-		let mut world = World {
+		let mut world = Self {
 			modules,
 			condition,
 			power,
 			parts: ship.parts,
 			connections: ship.connections, // …then the original moves. no waste, no assignment
-			..World::new(ship.seed)        // tick, rng, log from the one blessed constructor
+			..Self::new(ship.seed)         // tick, rng, log from the one blessed constructor
 		};
 		// event #0, always. paracausal: the ship exists because I said so.
 		world.emit(EventKind::WorldLoaded, None);
@@ -162,15 +167,23 @@ pub struct PartDef {
 	pub power: Option<PowerRole>,
 }
 
-fn index_by<T>(items: &[T], key: impl Fn(&T) -> &str) -> BTreeMap<String, u32> {
+/// Index a declared list by its name, so references to it can be resolved.
+///
+/// Position in the list *is* identity — that is what makes the loop counter a
+/// valid id. Overflow is a `LoadError` rather than a panic because this runs at
+/// an airlock: a fixture with four billion of anything is a malformed fixture,
+/// not an impossible state.
+fn index_by<T>(
+	items: &[T],
+	key: impl Fn(&T) -> &str,
+	what: &'static str,
+) -> Result<BTreeMap<String, u32>, LoadError> {
 	items
 		.iter()
 		.enumerate()
 		.map(|(i, t)| {
-			(
-				key(t).to_string(),
-				u32::try_from(i).expect("more than 4 billion of one type"),
-			)
+			let index = u32::try_from(i).map_err(|_| LoadError::TooMany(what))?;
+			Ok((key(t).to_string(), index))
 		})
 		.collect()
 }

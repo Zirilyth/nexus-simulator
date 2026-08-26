@@ -14,7 +14,7 @@ pub struct ShipId(pub u32);
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Eq, Ord)]
 #[serde(try_from = "u32")]
-pub struct RunId(pub u32);
+pub struct RunId(pub(crate) u32);
 
 #[cfg(test)]
 mod tests {

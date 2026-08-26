@@ -11,13 +11,13 @@ impl Condition {
 	/// [`InvalidCondition`] — outside `0.0..=1.0`, or not finite.
 	pub fn new(v: f32) -> Result<Self, InvalidCondition> {
 		if (0.0..=1.0).contains(&v) && v.is_finite() {
-			Ok(Condition(v))
+			Ok(Self(v))
 		} else {
 			Err(InvalidCondition(v))
 		}
 	}
 	#[must_use]
-	pub fn get(self) -> f32 {
+	pub const fn get(self) -> f32 {
 		self.0
 	}
 }
@@ -37,6 +37,6 @@ impl TryFrom<f32> for Condition {
 	type Error = InvalidCondition;
 
 	fn try_from(v: f32) -> Result<Self, Self::Error> {
-		Condition::new(v)
+		Self::new(v)
 	}
 }

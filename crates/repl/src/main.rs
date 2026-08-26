@@ -58,27 +58,18 @@ fn dispatch(
 
 		(Some("list"), _) => {
 			for (id, m) in world.modules() {
-				let part = world.part(*id);
-				println!("  [{:>2}] {:<8} {:<12}", id.0, m.label, part.name);
+				println!(
+					"  [{:>2}] {:<8} {:<12}",
+					id.index(),
+					m.label,
+					world.part(*id).map_or(UNLISTED, |p| p.name.as_str())
+				);
 			}
 			Continue(())
 		}
 
 		(Some("inspect"), Some(label)) => {
-			match world.modules().iter().find(|(_, m)| m.label == label) {
-				Some((id, m)) => {
-					let part = world.part(*id);
-					let cond = world.condition_of(*id).map(Condition::get);
-					println!("  {} — {}", m.label, part.name);
-					println!(
-						"  maker  {:<10} part {}",
-						part.manufacturer, part.manufacturer_part_number
-					);
-					println!("  serial {}", m.serial);
-					println!("  made   {:.2}    condition {:.2?}", m.made, cond);
-				}
-				None => println!("  no module '{label}' aboard."),
-			}
+			print_inspect(world, label);
 			Continue(())
 		}
 		(Some("status"), Some(label)) => {
@@ -161,6 +152,11 @@ fn dispatch(
 
 /// The deck's grammar. Grows a line per phase; keep it the only place the
 /// verbs are spelled out, so it cannot drift from what the parser accepts.
+/// What the deck prints where a catalogue entry should be. Unreachable while
+/// the resolver mints every `PartId` — but a display that says "I do not know"
+/// beats one that invents a name.
+const UNLISTED: &str = "(unlisted)";
+
 fn print_usage() {
 	for (verb, what) in [
 		("list", "every module aboard"),
@@ -179,6 +175,29 @@ fn print_usage() {
 	}
 }
 
+/// The paperwork on one module: what it is, who made it, and how worn. Says
+/// nothing about how it is behaving — that is `status`, and keeping the two
+/// apart is what stops the deck naming a cause.
+fn print_inspect(world: &World, label: &str) {
+	let Some((id, m)) = world.modules().iter().find(|(_, m)| m.label == label) else {
+		println!("  no module '{label}' aboard.");
+		return;
+	};
+	let cond = world.condition_of(*id).map(Condition::get);
+	match world.part(*id) {
+		Some(part) => {
+			println!("  {} — {}", m.label, part.name);
+			println!(
+				"  maker  {:<10} part {}",
+				part.manufacturer, part.manufacturer_part_number
+			);
+		}
+		None => println!("  {} — {UNLISTED}", m.label),
+	}
+	println!("  serial {}", m.serial);
+	println!("  made   {:.2}    condition {:.2?}", m.made, cond);
+}
+
 /// Per-network state for one module. Power only, until phase 3 gives the
 /// valves something to say.
 fn print_status(world: &World, label: &str) {
@@ -186,9 +205,15 @@ fn print_status(world: &World, label: &str) {
 		println!("  no module '{label}' aboard.");
 		return;
 	};
-	let m = &world.modules()[&id];
-	let part = world.part(id);
-	println!("  {} — {}", m.label, part.name);
+	let Some(m) = world.modules().get(&id) else {
+		println!("  no module '{label}' aboard.");
+		return;
+	};
+	println!(
+		"  {} — {}",
+		m.label,
+		world.part(id).map_or(UNLISTED, |p| p.name.as_str())
+	);
 	println!(
 		"  power   {:<10} draw {}A",
 		match world.is_energised(id) {
@@ -196,7 +221,7 @@ fn print_status(world: &World, label: &str) {
 			Some(false) => "dark",
 			None => "n/a",
 		},
-		part.power.map_or(0, PowerRole::draw_a)
+		world.power_role(id).map_or(0, PowerRole::draw_a)
 	);
 	if let Some(closed) = world.breaker_closed(id) {
 		println!("  breaker {}", if closed { "closed" } else { "OPEN" });
@@ -254,7 +279,7 @@ fn print_event(world: &World, ev: &Event) {
 		world
 			.modules()
 			.get(id)
-			.map_or("???".to_string(), |m| m.label.clone())
+			.map_or_else(|| "???".to_string(), |m| m.label.clone())
 	};
 	let cause = ev.cause.map_or(String::new(), |c| format!("  ← #{}", c.0));
 	let what = match &ev.kind {
@@ -344,9 +369,9 @@ fn print_scan(world: &World) {
 	for (id, m) in world.modules() {
 		println!(
 			"  [{:>2}] {:<8} {:<12} Status: {}",
-			id.0,
+			id.index(),
 			m.label,
-			world.part(*id).name,
+			world.part(*id).map_or(UNLISTED, |p| p.name.as_str()),
 			match world.symptom_of(*id) {
 				Some(Symptom::Dark) => {
 					"Dark"

@@ -12,7 +12,7 @@ use rand_chacha::ChaCha8Rng;
 use rand_chacha::rand_core::SeedableRng;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Connection {
 	pub net: NetworkKind,
 	pub from: (ModuleId, PortName),
@@ -22,7 +22,7 @@ pub struct Connection {
 #[derive(Debug, PartialEq)]
 pub struct World {
 	pub(crate) tick: u64,
-	pub(crate) next_event: u64,
+	pub(crate) next_event_id: u64,
 	pub(crate) rng: ChaCha8Rng,
 	pub(crate) modules: BTreeMap<ModuleId, ModuleMeta>,
 	pub(crate) condition: BTreeMap<ModuleId, Condition>,
@@ -41,6 +41,8 @@ pub enum LoadError {
 	UnknownLabel(String),
 	UnknownPart(String),
 	UnknownRun(String),
+	/// A fixture so large its indices do not fit in a `u32`. Not a real ship.
+	TooMany(&'static str),
 }
 
 impl World {
@@ -50,12 +52,12 @@ impl World {
 	}
 
 	#[must_use]
-	pub fn tick(&self) -> u64 {
+	pub const fn tick(&self) -> u64 {
 		self.tick
 	}
 
 	#[must_use]
-	pub fn modules(&self) -> &BTreeMap<ModuleId, ModuleMeta> {
+	pub const fn modules(&self) -> &BTreeMap<ModuleId, ModuleMeta> {
 		&self.modules
 	}
 
@@ -72,7 +74,7 @@ impl World {
 	pub fn from_fixture_str(text: &str) -> Result<Self, LoadError> {
 		let fx: ShipFixture = ron::from_str(text).map_err(LoadError::Parse)?;
 		let resolved = ResolvedShip::try_from(fx)?;
-		Ok(World::from(resolved))
+		Ok(Self::from(resolved))
 	}
 
 	/// Load a ship from RON fixture text.
@@ -87,9 +89,9 @@ impl World {
 
 	#[must_use]
 	pub(crate) fn new(seed: u64) -> Self {
-		World {
+		Self {
 			tick: 0,
-			next_event: 0,
+			next_event_id: 0,
 			rng: ChaCha8Rng::seed_from_u64(seed),
 			modules: BTreeMap::new(),
 			condition: BTreeMap::new(),
@@ -127,9 +129,18 @@ impl World {
 		self.power.sources.get(&id).map(|s| s.online)
 	}
 
+	#[expect(
+		clippy::expect_used,
+		reason = "EventIds must stay unique: `cause` points at them, so a reused id makes \
+		          the log's causality silently wrong — the one failure this project cannot \
+		          tolerate. crashing at 18 quintillion events beats lying about history."
+	)]
 	pub(crate) fn emit(&mut self, kind: EventKind, cause: Option<EventId>) -> EventId {
-		let id = EventId(self.next_event);
-		self.next_event += 1;
+		let id = EventId(self.next_event_id);
+		self.next_event_id = self
+			.next_event_id
+			.checked_add(1)
+			.expect("EventId space exhausted");
 		self.log.push(Event {
 			id,
 			at_tick: self.tick,
@@ -138,7 +149,15 @@ impl World {
 		});
 		id
 	}
+	/// The text behind an interned port name.
 	#[must_use]
+	#[expect(
+		clippy::indexing_slicing,
+		clippy::as_conversions,
+		reason = "PortName's field is pub(crate) and only the fixture resolver mints one, \
+		          as an index into this exact Vec. out of range is unrepresentable from \
+		          outside the crate."
+	)]
 	pub fn port_name(&self, p: PortName) -> &str {
 		&self.port_names[p.0 as usize]
 	}
@@ -159,13 +178,25 @@ impl World {
 	pub fn charge_of(&self, id: ModuleId) -> Option<u64> {
 		self.power.sources.get(&id).map(|s| s.charge_at(self.tick))
 	}
+	/// The catalogue entry a module was built from.
+	///
+	/// `None` means no such module aboard. A `PartId` always resolves — it is
+	/// minted by the resolver against this exact table — so the only way to miss
+	/// is with an id that names nothing, which is a state the sim supports.
 	#[must_use]
-	pub fn part(&self, id: ModuleId) -> &Part {
-		let part_id = self.modules[&id].part;
-		&self.parts[part_id.0 as usize]
+	pub fn part(&self, id: ModuleId) -> Option<&Part> {
+		let part_id = self.modules.get(&id)?.part;
+		self.parts.get(usize::try_from(part_id.0).ok()?)
 	}
 
+	/// The cable run a connection was pulled through.
 	#[must_use]
+	#[expect(
+		clippy::indexing_slicing,
+		clippy::as_conversions,
+		reason = "RunId's field is pub(crate); only the fixture resolver mints one, as an \
+		          index into this exact Vec."
+	)]
 	pub fn run(&self, id: RunId) -> &Run {
 		&self.runs[id.0 as usize]
 	}
@@ -175,8 +206,11 @@ impl World {
 	}
 
 	#[must_use]
+	/// `None` = this module has no opinion about electricity — a valve, or an id
+	/// that names nothing aboard. Both are "do not include it in the power
+	/// question", which is the only thing any caller does with the answer.
 	pub fn power_role(&self, id: ModuleId) -> Option<PowerRole> {
-		self.part(id).power
+		self.part(id)?.power
 	}
 
 	#[must_use]
